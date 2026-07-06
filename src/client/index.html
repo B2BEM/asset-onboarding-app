@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISO 55001 — Asset Onboarding</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<header class="app">
+  <div class="brand">
+    <div class="mark">ISO</div>
+    <div>
+      <h1>Asset Onboarding</h1>
+      <p>Vendor-neutral asset register</p>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="hactions">
+    <button class="btn ghost sm" id="btnTemplate" title="Download a blank CSV to fill in and import"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> Blank CSV</button>
+    <button class="btn ghost sm" id="btnImportCsv" title="Import asset rows from a filled CSV to review &amp; correct"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import CSV</button>
+    <button class="btn ghost sm" id="btnNew" title="Start a new blank project (current work is auto-saved as a draft first)">New</button>
+    <button class="btn ghost sm" id="btnLoad" title="Resume a saved draft">Open draft</button>
+    <button class="btn sm" id="btnSave" title="Save your work in progress">Save draft</button>
+    <span class="hdiv"></span>
+    <button class="btn primary sm" id="btnExport"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>
+    <details class="hmore">
+      <summary title="Admin actions" aria-label="Admin actions">⋯</summary>
+      <div class="hmenu">
+        <button class="btn ghost sm" id="btnAdmin" title="Admin sign-in to manage the data source"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Admin</button>
+        <button class="btn ghost sm admin-only" id="btnSettings" title="Configure the live data source (workbook)" style="display:none"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg> Data source</button>
+        <button class="btn ghost sm admin-only" id="btnImportData" title="Refresh dropdown data from a workbook export file" style="display:none"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Update data</button>
+        <button class="btn ghost sm admin-only" id="btnRegister" title="Admin: pull onboarding CSVs from the SharePoint folder into the internal asset register" style="display:none"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Update register</button>
+        <button class="btn ghost sm admin-only" id="btnErpSetup" title="Configure the ERP profile: fields, headers, ISO/flat mode" style="display:none"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> ERP setup</button>
+        <button class="btn ghost sm admin-only" id="btnFolder" style="display:none" title="Connect the OneDrive-synced SharePoint folder to read data &amp; save exports there"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg> SharePoint folder</button>
+        <span id="folderStatus" style="display:none;align-self:center;font-size:12px;font-weight:600;color:var(--teal)"></span>
+      </div>
+    </details>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="banner" id="banner"><span id="bannerMsg"></span><span class="bx" id="bannerX">✕</span></div>
+
+  <div class="context" id="projectBar">
+    <div class="field">
+      <label>Project manager</label>
+      <input class="text" id="pmName" placeholder="Name" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Project number</label>
+      <input class="text" id="pmNumber" placeholder="e.g. PRJ-00123" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Project start date</label>
+      <div class="datefield"><input class="text d-text" id="pmStart" placeholder="date or free text" autocomplete="off"><input type="date" class="d-pick" tabindex="-1" aria-label="Pick project start date"></div>
+    </div>
+    <div class="field">
+      <label>Expected completion date</label>
+      <div class="datefield"><input class="text d-text" id="pmEnd" placeholder="date or free text" autocomplete="off"><input type="date" class="d-pick" tabindex="-1" aria-label="Pick expected completion date"></div>
+    </div>
+    <div class="grow"></div>
+    <div class="field" style="min-width:auto">
+      <label>Export file name</label>
+      <div class="hint" id="exportNameHint">—</div>
+    </div>
+  </div>
+
+  <div class="context">
+    <div class="field">
+      <label>Site</label>
+      <select class="native" id="selSite"></select>
+    </div>
+    <div class="ctx-check" style="font-style:italic;opacity:.85">Parent assets are limited to the selected site.</div>
+    <div class="grow"></div>
+    <div class="field" style="min-width:auto">
+      <label>Dataset</label>
+      <div class="hint" id="dsInfo">—</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn primary" id="btnAdd"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Add asset</button>
+    <button class="btn" id="btnBomEx" title="Attach spares / BOM items to an existing register asset"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> BOM to existing asset</button>
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="text" id="rowSearch" placeholder="Filter rows…">
+    </div>
+    <label class="ctx-check" style="padding:0"><input type="checkbox" id="chkIssuesOnly"> Issues only</label>
+    <div class="spacer" style="flex:1"></div>
+    <div class="count" id="rowCount">No assets yet</div>
+  </div>
+
+  <div class="tablecard">
+    <table class="rows">
+      <thead>
+        <tr>
+          <th style="width:30px">#</th>
+          <th style="width:78px">Action</th>
+          <th>Proposed asset no.</th>
+          <th>Taxonomy path</th>
+          <th>Tag name</th>
+          <th>Classification</th>
+          <th>Parent asset</th>
+          <th style="width:104px"></th>
+        </tr>
+      </thead>
+      <tbody id="rowsBody"></tbody>
+    </table>
+    <div class="empty" id="emptyState">
+      <svg width="132" height="88" viewBox="0 0 132 88" fill="none" aria-hidden="true">
+        <rect x="46" y="4" width="40" height="26" rx="7" fill="var(--act)" stroke="var(--ac)" stroke-width="1.5"/>
+        <path d="M66 30 v12 M30 58 v-4 a8 8 0 0 1 8-8 h56 a8 8 0 0 1 8 8 v4" stroke="#C3CCD4" stroke-width="1.5" fill="none"/>
+        <rect x="10" y="58" width="40" height="26" rx="7" fill="#fff" stroke="#C3CCD4" stroke-width="1.5"/>
+        <rect x="82" y="58" width="40" height="26" rx="7" fill="#fff" stroke="#C3CCD4" stroke-width="1.5"/>
+      </svg>
+      <div class="e-title">No onboarding rows yet</div>
+      <div class="e-sub">Your register structure is in place. Click <b>＋ Add asset</b> above and pick the Asset Sub Class (or a deeper parent) the asset sits under — numbering is automatic. Or download a <b>Blank CSV</b>, fill it in, and <b>Import CSV</b>.</div>
+    </div>
+    <div class="structwiz" id="structWizard" style="display:none" role="region" aria-label="Register structure setup wizard"></div>
+  </div>
+</div>
+
+<!-- Editor modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 id="modalTitle">Add asset</h2>
+      <button class="btn ghost x" id="modalX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="section-title">Action</div>
+        <div class="seg" id="segAction" style="margin-top:8px">
+          <button data-a="add" class="on add">Add new</button>
+          <button data-a="update" class="">Update</button>
+          <button data-a="retire" class="">Retire</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Place in hierarchy</div>
+        <div class="field" style="margin-top:8px">
+          <label id="parentLbl">Select parent asset <span class="hint">(existing asset this sits under)</span></label>
+          <div class="combo" id="cmbParent"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Asset taxonomy</div>
+        <div class="legend" style="margin:8px 0">
+          Search prefixes:
+          <span><code>&lt;</code> reference asset</span>
+          <span><code>*</code> asset class</span>
+          <span><code>"</code> space</span>
+          <span><code>(</code> context</span>
+          <span style="color:var(--teal)">Under <b>Outload</b>, Fixed&nbsp;Plant shows as <b>PCA</b> &amp; Structure as <b>CIV</b>.</span>
+        </div>
+        <div class="cascade" id="cascade"></div>
+      </div>
+
+      <div>
+        <div class="section-title">Asset details</div>
+        <div class="grid2" style="margin-top:8px">
+          <div class="field">
+            <label>Asset / tag name <span class="req">*</span></label>
+            <input class="text" id="inpTag" placeholder="e.g. PUMP 01" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Specific asset description</label>
+            <input class="text" id="inpDesc" placeholder="optional free-text detail" autocomplete="off">
+          </div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="field">
+            <label>Maintaining department override</label>
+            <div class="combo" id="cmbDept"></div>
+          </div>
+          <div class="field">
+            <label>Internal location override</label>
+            <div class="combo" id="cmbLoc"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Classification, numbering &amp; name <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:600">— Rule Standard §1–§7</span></div>
+        <div class="nameplate" id="nameplate">
+          <div class="npk">Proposed asset no.</div>
+          <div class="npno" id="npNo">—</div>
+          <div class="npd" id="npDesc"></div>
+          <div class="npc" id="npHint" style="display:none">↳ Click the number to auto-fill tag name, asset type &amp; description</div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="field">
+            <label>Asset type <span class="hint">(drives abbreviation)</span></label>
+            <input class="text" id="inpAssetType" placeholder="auto from taxonomy" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Duty / purpose <span class="hint">(optional)</span></label>
+            <input class="text" id="inpDuty" placeholder="e.g. hydraulic, vacuum, air" autocomplete="off">
+          </div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="field">
+            <label>Number <span class="hint">(blank = auto next sequence)</span></label>
+            <input class="text" id="inpNumber" placeholder="auto" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Classification</label>
+            <select class="native" id="selClass"></select>
+          </div>
+        </div>
+        <div class="field" id="woWrap" style="margin-top:14px;display:none">
+          <label>Are work orders required for this asset?</label>
+          <div class="seg" id="segWO">
+            <button data-wo="yes" class="on">Yes → REFERENCE - SUB</button>
+            <button data-wo="no">No → REFERENCE</button>
+          </div>
+        </div>
+        <div class="enginePanel" id="enginePanel"></div>
+        <div class="engineIssues" id="engineIssues"></div>
+      </div>
+
+      <div id="assetInfoSection" style="display:none">
+        <div class="section-title">Asset information <span class="hint" id="aiHint" style="text-transform:none;letter-spacing:0;font-weight:600"></span></div>
+        <div class="subnote">Required before CSV export for each item asset (fields marked <span class="req">*</span>). Mirrors the master <b>ASSET DETAILS</b> sheet.</div>
+        <div class="field" id="itemTypeWrap" style="margin-bottom:14px">
+          <label>Item type</label>
+          <div class="seg" id="segItemType">
+            <button type="button" data-it="purchaseBuilt">Purchase Build Item</button>
+            <button type="button" data-it="longLead">Lead Item</button>
+            <button type="button" data-it="held">Held Item</button>
+          </div>
+        </div>
+        <div class="infogrid" id="assetInfoGrid"></div>
+      </div>
+
+      <div id="bomSection" style="display:none">
+        <div class="section-title">Bill of materials <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:600">— spares / parts (optional). Score &amp; stocking recommendation is provisional.</span></div>
+        <div class="bomwrap" id="bomWrap"></div>
+        <button class="btn sm" id="btnAddBom" type="button" style="margin-top:10px"><svg class="i" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Add part</button>
+      </div>
+
+      <div class="valwarn" id="valwarn"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn danger" id="btnDelete" style="display:none">Delete</button>
+      <div class="spacer"></div>
+      <button class="btn" id="btnCancel">Cancel</button>
+      <button class="btn" id="btnSaveAdd" title="Save and immediately start another asset under the same parent">Save &amp; add another</button>
+      <button class="btn primary" id="btnSaveRow">Save asset</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add BOM to existing asset modal -->
+<div class="modal-bg" id="bomExBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>Add BOM to an existing asset</h2>
+      <button class="btn ghost x" id="bomExX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="section-title">Search asset</div>
+        <div class="subnote">Find the existing register asset (limited to the selected site) to attach spares / BOM items to.</div>
+        <div class="field" style="margin-top:8px">
+          <label>Existing asset <span class="req">*</span></label>
+          <div class="combo" id="cmbBomEx"></div>
+        </div>
+      </div>
+      <div id="bomExModeWrap" style="display:none">
+        <div class="section-title">Add or edit</div>
+        <div class="seg" id="segBomMode" style="margin-top:8px">
+          <button data-bm="add" class="on">Add BOM items</button>
+          <button data-bm="edit">Edit BOM items</button>
+        </div>
+      </div>
+      <div id="bomExSection" style="display:none">
+        <div class="section-title" id="bomExHead">Bill of materials</div>
+        <div class="subnote" id="bomExNote"></div>
+        <div class="bomwrap" id="bomExWrap"></div>
+        <button class="btn sm" id="btnBomExAdd" type="button" style="margin-top:10px"><svg class="i" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Add part</button>
+      </div>
+      <div class="valwarn" id="bomExWarn"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn" id="bomExCancel">Cancel</button>
+      <button class="btn primary" id="btnBomExSave">Save BOM</button>
+    </div>
+  </div>
+</div>
+<!-- Data source settings modal -->
+<div class="modal-bg" id="adminBg">
+  <div class="modal narrow" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>Admin sign-in</h2>
+      <button class="btn ghost x" id="adminX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="hint">Sign in to show the <b>Data source</b> and <b>Update data</b> controls. You do not need this to add assets or export — only to manage the dropdown data.</div>
+      <div class="field" style="margin-top:10px">
+        <label>Admin password</label>
+        <input class="text" id="inpAdminPass" type="password" autocomplete="off" placeholder="••••••••">
+      </div>
+      <div class="hint" id="adminErr" style="color:var(--red)"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn primary" id="btnDoLogin">Sign in</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="settingsBg">
+  <div class="modal narrow" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>Live data source</h2>
+      <button class="btn ghost x" id="settingsX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="hint">Point the app at the <b>most up-to-date workbook data</b>. Paste a URL that returns the
+        dataset as JSON (see the README for how to publish it). Leave blank to keep using the built-in data
+        and the manual <b>Update data</b> file load.</div>
+      <div class="field">
+        <label>Data source URL</label>
+        <input class="text" id="inpDataUrl" placeholder="https://…/asset-data.json" autocomplete="off">
+      </div>
+      <div class="hint" id="dataUrlStatus"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn danger" id="btnClearUrl">Clear</button>
+      <div class="spacer"></div>
+      <button class="btn" id="btnSaveUrl">Save</button>
+      <button class="btn primary" id="btnFetchNow">Save &amp; fetch now</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="draftsBg">
+  <div class="modal narrow" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>Open a saved draft</h2>
+      <button class="btn ghost x" id="draftsX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="hint">Pick a recent draft to restore it into the workspace. This replaces the current rows and project header.</div>
+      <div id="draftsList" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnDraftFile"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg> Open from a file instead…</button>
+      <div class="spacer"></div>
+    </div>
+  </div>
+</div>
+<!-- Flat-mode add/edit record modal -->
+<div class="modal-bg" id="flatAddBg">
+  <div class="modal narrow" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 id="flatAddTitle">Add record</h2>
+      <button class="btn ghost x" id="flatAddX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="flatAddFields"></div>
+      <div class="valwarn" id="flatAddWarn"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn" id="flatAddCancel">Cancel</button>
+      <button class="btn primary" id="flatAddSave">Save record</button>
+    </div>
+  </div>
+</div>
+<!-- CSV import column-mapping modal -->
+<div class="modal-bg" id="erpMapBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>Map CSV columns</h2>
+      <button class="btn ghost x" id="erpMapX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="subnote">Match each column in your file to an app field. Unmatched columns are ignored. Your choices are remembered for this ERP profile.</div>
+      <div id="erpMapRows"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn" id="erpMapCancel">Cancel</button>
+      <button class="btn primary" id="erpMapImport">Import</button>
+    </div>
+  </div>
+</div>
+<!-- ERP setup modal (admin) -->
+<div class="modal-bg" id="erpSetupBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>ERP setup</h2>
+      <button class="btn ghost x" id="erpSetupX" style="color:var(--ink-soft)" aria-label="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="context">
+        <div class="field"><label>Profile</label><select class="native" id="erpProfileSel"></select></div>
+        <div class="field"><label>Profile name</label><input class="text" id="erpName" autocomplete="off" placeholder="Profile name"></div>
+        <div class="field"><label>ERP type</label><select class="native" id="erpTypeSel"></select></div>
+        <div class="field"><label>Mode</label>
+          <div class="seg" id="erpModeSeg">
+            <button type="button" data-m="iso">ISO 55001</button>
+            <button type="button" data-m="flat">Flat</button>
+          </div>
+        </div>
+        <div class="grow"></div>
+        <button class="btn sm" id="erpNew">New</button>
+        <button class="btn sm" id="erpDup">Duplicate</button>
+        <button class="btn sm danger" id="erpDel">Delete</button>
+      </div>
+      <div class="section-title" style="margin-top:12px">Columns</div>
+      <div class="subnote">Tick the columns to include, rename headers, choose the source (ISO mode), and mark required. Use ↑ / ↓ to reorder.</div>
+      <div id="erpCols"></div>
+      <button class="btn sm" id="erpAddCol" type="button" style="margin-top:8px">＋ Add custom field</button>
+      <div class="section-title" style="margin-top:12px">Blank-CSV preview</div>
+      <div class="hint" id="erpPreview" style="font-family:monospace;white-space:pre-wrap;max-height:120px;overflow:auto"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn" id="erpSetupCancel">Cancel</button>
+      <button class="btn primary" id="erpSetupSave">Save profile</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="fileData" accept=".json" style="display:none">
+<input type="file" id="fileDraft" accept=".json" style="display:none">
+<input type="file" id="fileCsv" accept=".csv,text/csv" style="display:none">
+<div class="toast" id="toast"></div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

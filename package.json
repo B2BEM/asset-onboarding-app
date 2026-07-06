@@ -1,0 +1,18 @@
+{
+  "name": "asset-onboarding-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node test/generic.test.js && node test/erpProfile.test.js && node test/structure.test.js",
+    "seed": "node scripts/seed-db.js",
+    "start": "node src/server/server.js",
+    "dev": "node src/server/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "openid-client": "^6.8.4"
+  }
+}

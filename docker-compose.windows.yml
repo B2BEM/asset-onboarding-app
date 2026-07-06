@@ -1,0 +1,16 @@
+# Windows-workstation override for local verification ONLY.
+# SQLite WAL needs mmap'd -shm files, which Docker Desktop's Windows bind mounts
+# cannot provide (SQLITE_IOERR_SHMOPEN). This swaps the app's ./data bind mount
+# for a named Linux-side volume; the image's baked-in seed-dataset.json is copied
+# into the volume on first start and seed-db.js populates a fresh DB there.
+# The production Linux VM keeps the plain docker-compose.yml bind-mount layout.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.windows.yml up -d --build
+#
+services:
+  app:
+    volumes:
+      - appdata:/app/data
+
+volumes:
+  appdata:
