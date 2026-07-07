@@ -11,6 +11,11 @@ services:
   app:
     volumes:
       - appdata:/app/data
+  nginx:
+    # Workstation runs may use dev auth — never expose beyond this machine.
+    # 8443: a resident nginx.exe on this workstation owns 443; 80 redirect is pointless locally.
+    ports: !override
+      - "127.0.0.1:10443:443"
 
 volumes:
   appdata:
