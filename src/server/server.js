@@ -43,6 +43,9 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy', CSP);
+  // The app uses no powerful browser features — deny the common ones outright
+  // (header hardening 2026-07-07).
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
   next();
 });
 

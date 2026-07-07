@@ -49,6 +49,9 @@ function upsertUser(u) {
 function sessionMiddleware() {
   return session({
     store: new SqliteSessionStore({ dbPath: SESSIONS_DB_PATH }),
+    // Generic cookie name — the express-session default (connect.sid) fingerprints the
+    // framework (header hardening 2026-07-07). Renaming invalidates existing sessions.
+    name: 'sid',
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
