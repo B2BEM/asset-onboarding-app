@@ -194,14 +194,19 @@ router.get('/drafts', (req, res) => {
 router.post('/drafts', (req, res) => {
   const { name, project, rows, bomExisting, newTax } = req.body || {};
   const ts = perthISO();
-  const stmt = db.prepare(`
-    INSERT INTO drafts (user, name, project_json, rows_json, bom_existing_json, new_tax_json, ts)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  const info = stmt.run(
-    req.user.upn, str(name, 300), JSON.stringify(project || {}), JSON.stringify(rows || []),
-    JSON.stringify(bomExisting || []), JSON.stringify(newTax || []), ts
-  );
+  const nm = str(name, 300);
+  // upsert by (user, name): re-saving a draft replaces it instead of piling up copies
+  const save = db.transaction(() => {
+    db.prepare('DELETE FROM drafts WHERE user = ? AND name = ?').run(req.user.upn, nm);
+    return db.prepare(`
+      INSERT INTO drafts (user, name, project_json, rows_json, bom_existing_json, new_tax_json, ts)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      req.user.upn, nm, JSON.stringify(project || {}), JSON.stringify(rows || []),
+      JSON.stringify(bomExisting || []), JSON.stringify(newTax || []), ts
+    );
+  });
+  const info = save();
   audit(req.user.upn, 'draft.save', { id: info.lastInsertRowid, name });
   res.json({ id: info.lastInsertRowid, ts });
 });

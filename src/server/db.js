@@ -148,5 +148,9 @@ CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent);
 CREATE INDEX IF NOT EXISTS idx_assets_no ON assets(no);
 `);
 
+// Draft dedupe (spec 2026-07-07): POST /api/drafts now upserts by (user, name); collapse any
+// pre-upsert duplicate pile to the newest row per (user, name). Idempotent, runs each boot.
+db.exec('DELETE FROM drafts WHERE id NOT IN (SELECT MAX(id) FROM drafts GROUP BY user, name)');
+
 export default db;
 export { DB_PATH, REPO_ROOT };

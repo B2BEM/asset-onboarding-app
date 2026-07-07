@@ -191,7 +191,7 @@ function reapplyOverrides(){ NEW_TAX.slice().forEach(t=>registerTaxValue(t.value
 function makeTaxAdd(i, parentVal, expanded){
   const lvlNo=i+3, wrap=document.createElement('div'); wrap.className='taxadd';
   wrap.innerHTML=
-    '<a href="#" class="tx-link" style="font-size:12px;color:var(--teal);text-decoration:none;font-weight:600">＋ '+(expanded?('No standard sub-levels here — add a Level '+lvlNo+' taxonomy value to go deeper, or leave blank to stop'):('Value not listed? Add a Level '+lvlNo+' value'))+'</a>'+
+    '<a href="#" class="tx-link" style="font-size:12px;color:var(--navy-mid);text-decoration:none;font-weight:600">＋ '+(expanded?('No standard sub-levels here — add a Level '+lvlNo+' taxonomy value to go deeper, or leave blank to stop'):('Value not listed? Add a Level '+lvlNo+' value'))+'</a>'+
     '<div class="tx-form" style="display:'+(expanded?'block':'none')+';margin-top:8px;border:1px solid var(--line-strong);border-radius:8px;padding:10px;background:var(--panel-2)">'+
       '<div class="grid2"><div class="field"><label>New taxonomy value <span class="req">*</span></label><input class="text tx-name" autocomplete="off" placeholder="e.g. &lt;DRAINAGE&gt; or PUMP STATION"></div>'+
       '<div class="field"><label>Type <span class="req">*</span></label><select class="native tx-type"><option value="REFERENCE">Reference / grouping (container — no number)</option><option value="CLASS">Class (numbered group)</option><option value="EQUIPMENT">Equipment (numbered item — needs make/model/serial)</option></select></div></div>'+
@@ -237,7 +237,7 @@ function makeTaxEdit(i, value){
   const n=NODES[value]||{}, nt=NEW_TAX.find(t=>t.value===value), parentVal = nt ? (nt.parent||null) : (i>0?editing.levels[i-1]:null);
   const wrap=document.createElement('span'); wrap.className='taxedit-wrap'; wrap.style.cssText='display:inline-block;position:relative';
   wrap.innerHTML=
-    '<a href="#" class="txe-link" title="Edit the value you added this session" style="margin-left:6px;font-size:13px;font-weight:700;color:var(--teal);text-decoration:none">✎ edit</a>'+
+    '<a href="#" class="txe-link" title="Edit the value you added this session" style="margin-left:6px;font-size:13px;font-weight:700;color:var(--navy-mid);text-decoration:none">✎ edit</a>'+
     '<div class="txe-form" style="display:none;position:absolute;z-index:30;top:20px;left:0;width:430px;max-width:80vw;border:1px solid var(--line-strong);border-radius:8px;padding:10px;background:var(--panel-2);box-shadow:0 6px 18px rgba(0,0,0,.18)">'+
       '<div class="grid2"><div class="field"><label>Value <span class="req">*</span></label><input class="text txe-name" autocomplete="off"></div>'+
       '<div class="field"><label>Type <span class="req">*</span></label><select class="native txe-type"><option value="REFERENCE">Reference / grouping (container — no number)</option><option value="CLASS">Class (numbered group)</option><option value="EQUIPMENT">Equipment (numbered item — needs make/model/serial)</option></select></div></div>'+
@@ -805,7 +805,9 @@ function persistProject(){ syncSession(); scheduleAutosave(); updateExportNameHi
 function updateExportNameHint(){ const el=$('#exportNameInput'); if(el) el.placeholder=exportFileBase()+'.csv'; }
 async function newProject(){
   if(rows.length && !confirm('Start a new project? Your current '+rows.length+' row(s) will be cleared.\n\n(Your current work is auto-saved as a draft first.)')) return;
-  try{ await saveDraft(); }catch(_){}
+  // park the outgoing project as a named draft, then detach the autosave slot so the fresh workspace can't reap it
+  try{ if(!workspacePristine()) await saveDraft(); }catch(_){}
+  resetAutosaveSlot();
   const prevServerRows=rows.filter(r=>r.id!=null);
   rows=[]; BOM_EXISTING=[]; NEW_TAX=[]; PROJECT={pm:'',number:'',start:'',end:'',exportName:''};   // keep the active ERP profile
   syncSession(); reapplyOverrides(); fillProjectInputs(); updateExportNameHint(); applyProfileUI(); persistLocal(); persistProject();
@@ -815,6 +817,7 @@ async function newProject(){
 }
 async function saveDraft(){
   syncSession();
+  if(workspacePristine()){ toast('Nothing to save yet'); return; }
   const name=draftFileName(PROJECT);
   try{
     const res=await fetch('/api/drafts',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -824,7 +827,11 @@ async function saveDraft(){
     toast('Draft saved — '+name);
   }catch(e){ toast('Draft save failed — server unreachable'); }
 }
-function loadDraftObj(o){ if(!o) return; const prevServerRows=rows.filter(r=>r.id!=null); rows=(o&&o.rows)||[]; BOM_EXISTING=(o&&o.bomExisting)||[]; PROJECT=Object.assign({pm:'',number:'',start:'',end:'',exportName:''}, (o&&o.project)||{}); NEW_TAX=(o&&o.newTax)||[];
+async function loadDraftObj(o){ if(!o) return;
+  // park the outgoing project in its own autosave slot before it is replaced, then detach the slot
+  try{ if(!workspacePristine()) await autosaveNow(); }catch(_){}
+  resetAutosaveSlot();
+  const prevServerRows=rows.filter(r=>r.id!=null); rows=(o&&o.rows)||[]; BOM_EXISTING=(o&&o.bomExisting)||[]; PROJECT=Object.assign({pm:'',number:'',start:'',end:'',exportName:''}, (o&&o.project)||{}); NEW_TAX=(o&&o.newTax)||[];
   // restore the draft's ERP profile (profileId rides inside project_json — server schema unchanged)
   const pid=(o&&o.profileId)||(o&&o.project&&o.project.profileId)||null;
   delete PROJECT.profileId;
@@ -852,17 +859,31 @@ async function openDrafts(){ const list=$('#draftsList'); if(!list) return;
 function closeDrafts(){ const b=$('#draftsBg'); if(b) b.classList.remove('open'); }
 
 /* ---------- debounced server autosave (replaces the browser-storage autosave) ---------- */
-let AUTOSAVE_ID=null, AUTOSAVE_T=null;
+let AUTOSAVE_ID=null, AUTOSAVE_T=null, AUTOSAVE_EPOCH=0;
 function scheduleAutosave(){ clearTimeout(AUTOSAVE_T); AUTOSAVE_T=setTimeout(autosaveNow, 2000); }
+/* pristine = nothing worth saving: no rows/BOM/session taxonomy and a blank project header */
+function workspacePristine(){ return !rows.length && !BOM_EXISTING.length && !NEW_TAX.length && !(PROJECT.pm||PROJECT.number||PROJECT.start||PROJECT.end||PROJECT.exportName); }
+/* one autosave slot per project — the server upserts drafts by (user, name) */
+function autosaveSlotName(){ return PROJECT.number ? 'autosave — '+PROJECT.number : 'autosave'; }
+/* detach the slot when the workspace switches projects (New / draft load) so the incoming
+   project can never reap the outgoing project's slot; the epoch voids in-flight saves */
+function resetAutosaveSlot(){ clearTimeout(AUTOSAVE_T); AUTOSAVE_ID=null; AUTOSAVE_EPOCH++; }
 async function autosaveNow(){
   syncSession();
+  const epoch=AUTOSAVE_EPOCH;
   try{
+    if(workspacePristine()){
+      // never save an empty workspace; reap the slot if the workspace was emptied after having content
+      if(AUTOSAVE_ID!=null){ const prev=AUTOSAVE_ID; AUTOSAVE_ID=null; fetch('/api/drafts/'+prev,{method:'DELETE'}).catch(()=>{}); }
+      return;
+    }
     const res=await fetch('/api/drafts',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:'autosave', project:Object.assign({}, PROJECT, {profileId: ACTIVE.id}), rows:rows, bomExisting:BOM_EXISTING, newTax:NEW_TAX})});
+      body:JSON.stringify({name:autosaveSlotName(), project:Object.assign({}, PROJECT, {profileId: ACTIVE.id}), rows:rows, bomExisting:BOM_EXISTING, newTax:NEW_TAX})});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const o=await res.json();
+    if(epoch!==AUTOSAVE_EPOCH) return;   // workspace switched while this save was in flight — its slot id is stale
     const prev=AUTOSAVE_ID; AUTOSAVE_ID=o.id;
-    // no PUT for drafts — POST a fresh autosave, then delete the previous one
+    // server upserts by (user,name); this delete only matters when the slot NAME changed (project number typed mid-session)
     if(prev!=null && prev!==AUTOSAVE_ID) fetch('/api/drafts/'+prev,{method:'DELETE'}).catch(()=>{});
   }catch(e){ /* autosave is best-effort; explicit Save draft surfaces errors */ }
 }
@@ -1265,7 +1286,7 @@ function openErpSetup(p){
   EDIT_PROFILE = JSON.parse(JSON.stringify(p || ACTIVE));
   $('#erpProfileSel').innerHTML = ERP.listProfiles().map(x => '<option value="' + esc(x.id) + '"' + (x.id === EDIT_PROFILE.id ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('');
   $('#erpName').value = EDIT_PROFILE.name || '';
-  $('#erpName').disabled = !!EDIT_PROFILE.builtIn;
+  $('#erpName').disabled = false;   // admins may rename any profile — built-in included (export path keys on builtIn+mode, not name)
   $('#erpTypeSel').innerHTML = Object.keys(ERP.PRESETS).map(k => '<option value="' + k + '"' + (k === EDIT_PROFILE.erpType ? ' selected' : '') + '>' + esc(ERP.PRESETS[k].name) + '</option>').join('');
   $('#erpModeSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === EDIT_PROFILE.mode));
   $('#erpDel').disabled = !!EDIT_PROFILE.builtIn;
