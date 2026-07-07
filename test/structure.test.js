@@ -7,6 +7,7 @@ import { initData, ASSETS, assetLevel } from '../src/shared/domain/data.js';
 import { withSession } from '../src/shared/domain/session.js';
 import { STRUCTURE_ROLES, roleOfLevel, structureComplete, hierarchyOrder, inSiteScope } from '../src/shared/domain/structure.js';
 import { computeForRow, rowStructLevel } from '../src/shared/domain/engine.js';
+import { proposedAssetDesc } from '../src/shared/domain/numbering.js';
 
 let failures = 0;
 function check(name, cond, detail){
@@ -57,6 +58,9 @@ withSession({ rows:[co, site, cls, leaf], PROJECT, BOM_EXISTING:[], NEW_TAX:[] }
   check('rowStructLevel(leaf) = 4', rowStructLevel(leaf) === 4, rowStructLevel(leaf));
   const l4 = computeForRow(leaf);
   check('level 4 keeps taxonomy-derived classification', STRUCTURE_ROLES.indexOf(l4.cls) < 0, l4.cls);
+  // trailing-sequence extraction pinned across the linear-scan rewrite (ReDoS audit 2026-07-07)
+  check('proposedAssetDesc keeps the trailing sequence number',
+    proposedAssetDesc(leaf) === 'OFFICE BUILDING 1', proposedAssetDesc(leaf));
   check('structure rows carry no blocking issues (§LVL exempt)',
     !computeForRow(site).hasHigh && !computeForRow(cls).hasHigh,
     computeForRow(site).issues.concat(computeForRow(cls).issues));

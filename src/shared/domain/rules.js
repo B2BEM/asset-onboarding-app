@@ -7,7 +7,9 @@ const RULES = (function(){
   const SPECIFIC_NUMBER=/^[A-Za-z]+\d+$/;
   const ALL_DIGITS=/^\d+$/;
   function hasPluralDescription(desc){ const d=(desc||'').toLowerCase(); return PLURAL_HINTS.some(p=>d.includes(p)); }
-  function isSpecificTag(tag){ const last=(tag||'').split('-').pop()||''; return /\d+$/.test(last); }
+  // /\d$/ ≡ /\d+$/ ("ends with ≥1 digit" ⟺ "last char is a digit") without the
+  // quadratic backtracking of an unanchored \d+ (ReDoS audit 2026-07-07).
+  function isSpecificTag(tag){ const last=(tag||'').split('-').pop()||''; return /\d$/.test(last); }
   function civilClassification(desc){
     const d=(desc||'').toLowerCase();
     const P=['column','beam','load-bearing','road finish','wearing course','deck top','asphalt','kerb','line marking'];

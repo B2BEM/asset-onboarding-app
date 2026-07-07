@@ -74,7 +74,10 @@ function proposedAssetDesc(e){
   const parent=e.parent||'';
   const pd=(ASSET_BY_NO.get(parent)||{}).desc||'';
   const leaf=lastLevel(e); const ld=leaf?descOf(leaf):'';
-  let num=''; { const m=proposedAssetNo(e).match(/(\d+)$/); if(m && (leafEnumerable(e) || (e.number!=null&&e.number!=='')) ) num=' '+m[1]; }
+  // trailing digit run via backward scan — /(\d+)$/ backtracks quadratically on digit-heavy
+  // strings (ReDoS audit 2026-07-07); charCode 48-57 is exactly \d (ASCII, no u-flag)
+  let num=''; { const s=proposedAssetNo(e); let i=s.length; while(i>0){ const c=s.charCodeAt(i-1); if(c<48||c>57) break; i--; }
+    if(i<s.length && (leafEnumerable(e) || (e.number!=null&&e.number!=='')) ) num=' '+s.slice(i); }
   const spec=(e.desc||'').trim();
   let parts=[]; if(pd) parts.push(pd); if(ld && (!pd || pd.toUpperCase().indexOf(ld.toUpperCase())<0)) parts.push(ld);
   let desc=(parts.join(' ').trim()+num).trim();

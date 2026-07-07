@@ -9,6 +9,7 @@ import { childrenOfRules } from '../src/shared/domain/cascade.js';
 import { computeForRow } from '../src/shared/domain/engine.js';
 import { infoMissing } from '../src/shared/domain/fields.js';
 import { CSV_HEADERS, buildCSV, buildBOMCSV, buildTaxCSV } from '../src/shared/domain/csv.js';
+import { RULES } from '../src/shared/domain/rules.js';
 
 let failures = 0;
 function check(name, cond, detail){
@@ -17,6 +18,11 @@ function check(name, cond, detail){
 }
 
 initData(JSON.parse(fs.readFileSync('data/seed-dataset.json', 'utf8')));
+
+// --- isSpecificTag semantics pinned across the linear-regex rewrite (ReDoS audit 2026-07-07)
+check('isSpecificTag: trailing digit → true', RULES.isSpecificTag('PMP-01') === true);
+check('isSpecificTag: digits inside only → false', RULES.isSpecificTag('P01-PMP') === false);
+check('isSpecificTag: empty → false', RULES.isSpecificTag('') === false);
 
 // --- dataset shape: taxonomy kept, register empty
 check('taxonomy kept (839 nodes)', Object.keys(NODES).length === 839, Object.keys(NODES).length);
