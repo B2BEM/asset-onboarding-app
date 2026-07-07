@@ -121,15 +121,19 @@ function Combo(host, opts){
 function nodeBadge(v){ return (NODES[v]||{}).type||''; }
 function entryLabel(e){ if(e.display!==e.value) return cleanName(e.display); const n=NODES[e.value]||{}; return n.desc || n.levelDesc || cleanName(e.value); }
 function taxOptionsFromEntries(entries){ return entries.map(e=>({value:e.value, label:entryLabel(e), sub:e.display, badge:nodeBadge(e.value)})).sort((a,b)=>a.label.localeCompare(b.label)); }
-// §parent picker — only reference / reference-sub containers (assets with children), and only assets
-// belonging to the selected site. A site owns the asset subtree whose no === site.name or starts site.name+"-".
+// §parent picker — only reference / reference-sub containers (assets with children), and only
+// entries belonging to the selected site. Site membership = the site sits on the entry's ancestor
+// chain (inSiteScope; chains span register assets AND session rows), so scoping holds even when
+// an entry's number doesn't carry the site prefix (e.g. imported registers).
 function assetOptions(){
-  const s=currentSite(); const k = s && s.name;
+  const s=currentSite(); const k = s ? s.name : '';
+  const sessParent = new Map(); rows.forEach(r=>{ const n=r.assetNo||''; if(n && !sessParent.has(n)) sessParent.set(n, r.parent||''); });
+  const parentOf = n => sessParent.has(n) ? sessParent.get(n) : ((ASSET_BY_NO.get(n)||{}).parent || '');
   let list = ASSETS.filter(a=>CONTAINER_NOS.has(a.no) && assetLevel(a.no)>=3);   // §structure — assets parent at Level 3+ (Asset Class or deeper)
-  if(k){ list=list.filter(a=>a.no===k || a.no.indexOf(k+'-')===0); }
+  if(k){ list=list.filter(a=>inSiteScope({no:a.no, parent:a.parent||''}, k, parentOf)); }
   const out = list.map(a=>({value:a.no, label:a.no, sub:a.desc}));
   // #1 — REFERENCE / REFERENCE-SUB / PRIMARY (P) / SECONDARY (S) assets added (or imported) this session
-  // become selectable parents, even when their auto number doesn't carry the site prefix, so assets can be nested under them.
+  // become selectable parents — but only those inside the selected site's subtree.
   const REF=new Set(['REFERENCE','REFERENCE - SUB','PRIMARY (P)','SECONDARY (S)']);
   rows.forEach((r,idx)=>{
     if(idx===editIndex || r.action!=='add') return;
@@ -137,6 +141,7 @@ function assetOptions(){
     if(lvl<3) return;                                            // sites / asset classes never parent assets
     if(lvl>3 && !REF.has(r.classification||classOf(r))) return;  // level-3 asset classes always qualify
     const no=r.assetNo; if(!no) return;
+    if(k && !inSiteScope({no, parent:r.parent||''}, k, parentOf)) return;
     if(out.some(o=>o.value===no)) return;
     out.push({value:no, label:no, sub:((r.desc||r.tag||'')+' · added this session').trim()});
   });
@@ -1165,7 +1170,10 @@ function bomKeyMatch(a,b){ const n=s=>String(s==null?'':s).trim().toLowerCase();
 let BOMEX_ASSETS = null;   // register assets (lvl>=4) from GET /api/assets/search; null -> fall back to bootstrap ASSETS
 function bomExAssetOptions(){ const s=currentSite(), k=s&&s.name;
   let list = BOMEX_ASSETS ? BOMEX_ASSETS : ASSETS.filter(a=>assetLevel(a.no)>=4);   // hide ports/sites/Level-3 groupings — BOM attaches at Level 4+
-  if(k) list=list.filter(a=>a.no===k || a.no.indexOf(k+'-')===0);
+  // same chain-based site scope as the parent picker; /api/assets/search rows carry .parent,
+  // so entries chain-climb even before they exist in the bootstrap ASSET_BY_NO index
+  if(k){ const parentOf = n => (ASSET_BY_NO.get(n)||{}).parent || '';
+    list=list.filter(a=>inSiteScope({no:a.no, parent:a.parent||''}, k, parentOf)); }
   return list.map(a=>({value:a.no, label:a.no, sub:a.desc})); }
 function findBomEx(no){ return BOM_EXISTING.find(e=>e.no===no)||null; }
 function closeBomEx(){ const b=$('#bomExBg'); if(b) b.classList.remove('open'); BOMEX=null; }
