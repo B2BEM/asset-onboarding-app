@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import { initData, ASSETS, assetLevel } from '../src/shared/domain/data.js';
 import { withSession } from '../src/shared/domain/session.js';
-import { STRUCTURE_ROLES, roleOfLevel, structureComplete } from '../src/shared/domain/structure.js';
+import { STRUCTURE_ROLES, roleOfLevel, structureComplete, hierarchyOrder, inSiteScope } from '../src/shared/domain/structure.js';
 import { computeForRow, rowStructLevel } from '../src/shared/domain/engine.js';
 
 let failures = 0;
@@ -73,6 +73,60 @@ withSession({ rows:[sessCls], PROJECT, BOM_EXISTING:[], NEW_TAX:[] }, () => {
   check('chain spanning register+session → true', structureComplete(levelOf, ASSETS.concat([sessCls])) === true);
   check('spanning class forced ASSET CLASS', computeForRow(sessCls).cls === 'ASSET CLASS', computeForRow(sessCls).cls);
 });
+
+// --- hierarchyOrder: children display under their parent regardless of entry order
+{
+  // entry order: company, south, class-under-south, north (the bug report's scenario)
+  const E = [
+    { no:'B2BE',         parent:'' },
+    { no:'B2BE-STH',     parent:'B2BE' },
+    { no:'B2BE-STH-B&I', parent:'B2BE-STH' },
+    { no:'B2BE-NTH',     parent:'B2BE' },
+  ];
+  const o = hierarchyOrder(E).map(i => E[i].no);
+  check('order: north follows the site block, under company',
+    JSON.stringify(o) === JSON.stringify(['B2BE','B2BE-STH','B2BE-STH-B&I','B2BE-NTH']), o);
+
+  const shuffled = [E[2], E[3], E[0], E[1]];   // class, north, company, south
+  const o2 = hierarchyOrder(shuffled).map(i => shuffled[i].no);
+  check('order: scrambled entry order still cascades from LVL 1',
+    o2[0] === 'B2BE' && o2.indexOf('B2BE-STH') < o2.indexOf('B2BE-STH-B&I') && o2.length === 4, o2);
+}
+{
+  const E = [ { no:'RS-FL-HV', parent:'RS-FL' }, { no:'X', parent:'' } ];   // register parent RS-FL not in entries
+  const o = hierarchyOrder(E);
+  check('order: register-parented row roots its own subtree, input order kept',
+    JSON.stringify(o) === JSON.stringify([0,1]), o);
+}
+{
+  const E = [ { no:'A', parent:'B' }, { no:'B', parent:'A' } ];   // parent cycle — no root
+  const o = hierarchyOrder(E);
+  check('order: cycle-safe — each emitted once, input order',
+    JSON.stringify([...o].sort()) === JSON.stringify([0,1]) && o.length === 2, o);
+}
+
+// --- inSiteScope: selected site shows its subtree + ancestors; other sites hidden
+{
+  const P = { 'B2BE':'', 'B2BE-STH':'B2BE', 'B2BE-NTH':'B2BE', 'B2BE-STH-B&I':'B2BE-STH', 'B2BE-STH-B&I-U1':'B2BE-STH-B&I' };
+  const parentOf = n => P[n] || '';
+  const S = 'B2BE-STH';
+  check('scope: site row itself visible', inSiteScope({no:'B2BE-STH', parent:'B2BE'}, S, parentOf) === true);
+  check('scope: child + grandchild visible',
+    inSiteScope({no:'B2BE-STH-B&I', parent:'B2BE-STH'}, S, parentOf) && inSiteScope({no:'B2BE-STH-B&I-U1', parent:'B2BE-STH-B&I'}, S, parentOf));
+  check('scope: company (ancestor of site) visible', inSiteScope({no:'B2BE', parent:''}, S, parentOf) === true);
+  check('scope: sibling site hidden', inSiteScope({no:'B2BE-NTH', parent:'B2BE'}, S, parentOf) === false);
+  check('scope: no site selected → everything visible', inSiteScope({no:'B2BE-NTH', parent:'B2BE'}, '', parentOf) === true);
+  check('scope: unresolvable entry hidden under a site', inSiteScope({no:'', parent:''}, S, parentOf) === false);
+}
+{
+  // chain spanning the register/session seam: session class under register site RS-FL
+  const P = { 'RS':'', 'RS-FL':'RS', 'RS-P2':'RS', 'RS-FL-HV':'RS-FL' };
+  const parentOf = n => P[n] || '';
+  check('scope: session class under register site visible for that site',
+    inSiteScope({no:'RS-FL-HV', parent:'RS-FL'}, 'RS-FL', parentOf) === true);
+  check('scope: same class hidden for the other register site',
+    inSiteScope({no:'RS-FL-HV', parent:'RS-FL'}, 'RS-P2', parentOf) === false);
+}
 
 if(failures){ console.error('STRUCTURE GATE: FAIL —', failures, 'check(s)'); process.exit(1); }
 console.log('STRUCTURE GATE: PASS');

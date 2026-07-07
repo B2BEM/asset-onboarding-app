@@ -9,7 +9,7 @@ import { RULES } from '../shared/domain/rules.js';
 import { cleanName, isGroupNode, plainNode, transformedChildren, childrenOfRules, descOfRules } from '../shared/domain/cascade.js';
 import { parentTx, levelCode, inheritedLen, newLeafLevel, leafCodeOf, newSegments, basePrefix, leafEnumerable, noTaken, nextSequence, autoAssetNo, proposedAssetNo, proposedAssetDesc } from '../shared/domain/numbering.js';
 import { lastLevel, assetTypeOf, taxChildCountOf, rowChildCount, engineInput, takenAbbrevs, classOf, dataIssuesFor, computeForRow, rowStructLevel, structRoleOf } from '../shared/domain/engine.js';
-import { STRUCTURE_ROLES, roleOfLevel, structureComplete } from '../shared/domain/structure.js';
+import { STRUCTURE_ROLES, roleOfLevel, structureComplete, hierarchyOrder, inSiteScope } from '../shared/domain/structure.js';
 import { INFO_FIELDS, INFO_REQUIRED, ITEM_TYPE_LABEL, ITEM_TYPE_RELAXED, ITEM_TYPE_RELAXED_FIELDS, requiredFieldsFor, FIELD_INFO, BOM_FIELDS, isItemRow, infoMissing, bomScore, stockRec, bomStockIssues } from '../shared/domain/fields.js';
 import { CSV_HEADERS, csvCell, buildCSV, BOM_CSV_HEADERS, buildBOMCSV, buildTaxCSV, sanitizeFileName, exportFileBase, draftFileName } from '../shared/domain/csv.js';
 import { PERTH_TZ, perthDate, perthDateTime, perthISO } from '../shared/domain/time.js';
@@ -621,17 +621,27 @@ function renderRows(){
 function renderIsoRows(){
   syncSession();
   const body=$('#rowsBody'), q=($('#rowSearch').value||'').toLowerCase(), issuesOnly=$('#chkIssuesOnly').checked;
-  const items = rows.map((r,i)=>({r,i})).filter(({r})=>{
+  // Site scope + hierarchical order (design 2026-07-07): rows display cascading from LVL 1
+  // (children under their parent, whatever order they were entered) and only the selected
+  // site's subtree — plus its company ancestors — is shown. Chains span session rows AND
+  // register assets, so rows parented into the register scope correctly.
+  const noOf = r => r.assetNo || proposedAssetNo(r) || '';
+  const sessParent = new Map(); rows.forEach(r=>{ const n=noOf(r); if(n && !sessParent.has(n)) sessParent.set(n, r.parent||''); });
+  const parentOf = n => sessParent.has(n) ? sessParent.get(n) : ((ASSET_BY_NO.get(n)||{}).parent || '');
+  const site = currentSite(); const siteNo = site ? site.name : '';
+  const order = hierarchyOrder(rows.map(r=>({no:noOf(r), parent:r.parent||''})));
+  const items = order.map(i=>({r:rows[i],i})).filter(({r})=>{
+    if(!inSiteScope({no:noOf(r), parent:r.parent||''}, siteNo, parentOf)) return false;
     if(issuesOnly && !computeForRow(r).hasIssue) return false;
     if(!q) return true;
     const hay=[r.tag,r.desc,r.parent,r.classification,proposedAssetNo(r),...(r.levels||[]).map(descOf)].join(' ').toLowerCase();
     return hay.includes(q);
   });
-  body.innerHTML = items.map(({r,i})=>{
+  body.innerHTML = items.map(({r,i},n)=>{
     const cf=computeForRow(r);
     const dot = cf.hasHigh ? '<span class="dot" title="has blocking rule issues"></span>' : (cf.hasIssue?'<span class="dot" style="background:var(--amber)" title="has warnings"></span>':'');
     return `<tr class="rowitem">
-      <td class="muted">${i+1}</td>
+      <td class="muted">${n+1}</td>
       <td><span class="pill ${esc(r.action)}">${esc((r.action||'add').toUpperCase())}</span></td>
       <td><span class="assetno">${esc(cf.assetNo)||'<span class="muted">—</span>'}</span></td>
       <td>${taxPathHtml(r.levels||[])}</td>
@@ -647,7 +657,7 @@ function renderIsoRows(){
   let badge='';
   if(rows.length){ let high=0,warn=0; rows.forEach(r=>{const cf=computeForRow(r); if(cf.hasHigh)high++; else if(cf.hasIssue)warn++;});
     if(high) badge=` · <span style="color:var(--red)">${high} to fix</span>`; else if(warn) badge=` · <span style="color:var(--amber)">${warn} warning${warn>1?'s':''}</span>`; else badge=` · <span style="color:var(--green)">all clear</span>`; }
-  $('#rowCount').innerHTML = rows.length ? `<b>${rows.length}</b> asset${rows.length>1?'s':''}`+badge+(q&&items.length!==rows.length?` · ${items.length} shown`:'') : 'No assets yet';
+  $('#rowCount').innerHTML = rows.length ? `<b>${rows.length}</b> asset${rows.length>1?'s':''}`+badge+(items.length!==rows.length?` · ${items.length} shown`:'') : 'No assets yet';
 }
 
 /* ===========================================================
@@ -1355,9 +1365,9 @@ function init(){
     }
     const ed=e.target.closest('[data-edit]'), de=e.target.closest('[data-del]');
     if(ed) openModal(+ed.dataset.edit);
-    if(de){ const i=+de.dataset.del; if(confirm('Delete asset #'+(i+1)+'?')){ const r=rows[i]; if(r && r.id!=null){ try{ const res=await fetch('/api/rows/'+r.id,{method:'DELETE'}); if(!res.ok) throw new Error('HTTP '+res.status); }catch(err){ toast('Delete failed — server unreachable'); return; } } rows.splice(i,1);renderRows();persistLocal();toast('Asset deleted');} }
+    if(de){ const i=+de.dataset.del; const r=rows[i]; const label=(r&&(r.assetNo||r.tag))?(r.assetNo||r.tag):('#'+(i+1)); if(confirm('Delete asset '+label+'?')){ if(r && r.id!=null){ try{ const res=await fetch('/api/rows/'+r.id,{method:'DELETE'}); if(!res.ok) throw new Error('HTTP '+res.status); }catch(err){ toast('Delete failed — server unreachable'); return; } } rows.splice(i,1);renderRows();persistLocal();toast('Asset deleted');} }
   });
-  $('#selSite').onchange=refreshAddBtn;
+  $('#selSite').onchange=()=>{ refreshAddBtn(); renderRows(); };   // site change re-scopes the table, not just the Add gate
   // req #5 — reopen the structure wizard to add another company / site / asset class
   const bns=$('#btnNewSite'); if(bns) bns.onclick=()=>{ WIZ_OPEN=true; updateWizard(); const w=$('#structWizard'); if(w) w.scrollIntoView({behavior:'smooth',block:'center'}); };
   refreshAddBtn();
