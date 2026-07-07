@@ -34,11 +34,11 @@ withSession({ rows:[siteRow, childRow], PROJECT, BOM_EXISTING:[], NEW_TAX:[] }, 
   const site = computeForRow(siteRow);
   check('site row: assetNo = tag', site.assetNo === 'SITE1', site.assetNo);
   check('site row: parentless rows exempt from §LVL (no blocking issues)', !site.hasHigh, site.issues);
-  check('site row: level-1 classification forced SITE', site.cls === 'SITE', site.cls);
+  check('site row: level-1 classification forced COMPANY', site.cls === 'COMPANY', site.cls);
 
   const child = computeForRow(childRow);
   check('child row: numbering SITE1-BLD01', child.assetNo === 'SITE1-BLD01', child.assetNo);
-  check('child row: level-2 classification forced ASSET CLASS', child.cls === 'ASSET CLASS', child.cls);
+  check('child row: level-2 classification forced SITE', child.cls === 'SITE', child.cls);
   check('child row: abbreviation OB', child.abbr === 'OB', child.abbr);
   check('child row: no issues', child.issues.length === 0, child.issues);
 

@@ -125,7 +125,7 @@ function taxOptionsFromEntries(entries){ return entries.map(e=>({value:e.value, 
 // belonging to the selected site. A site owns the asset subtree whose no === site.name or starts site.name+"-".
 function assetOptions(){
   const s=currentSite(); const k = s && s.name;
-  let list = ASSETS.filter(a=>CONTAINER_NOS.has(a.no) && assetLevel(a.no)>=3);   // §structure — assets parent at Level 3+ (Asset Sub Class or deeper)
+  let list = ASSETS.filter(a=>CONTAINER_NOS.has(a.no) && assetLevel(a.no)>=3);   // §structure — assets parent at Level 3+ (Asset Class or deeper)
   if(k){ list=list.filter(a=>a.no===k || a.no.indexOf(k+'-')===0); }
   const out = list.map(a=>({value:a.no, label:a.no, sub:a.desc}));
   // #1 — REFERENCE / REFERENCE-SUB / PRIMARY (P) / SECONDARY (S) assets added (or imported) this session
@@ -135,7 +135,7 @@ function assetOptions(){
     if(idx===editIndex || r.action!=='add') return;
     const lvl=rowStructLevel(r);
     if(lvl<3) return;                                            // sites / asset classes never parent assets
-    if(lvl>3 && !REF.has(r.classification||classOf(r))) return;  // level-3 sub classes always qualify
+    if(lvl>3 && !REF.has(r.classification||classOf(r))) return;  // level-3 asset classes always qualify
     const no=r.assetNo; if(!no) return;
     if(out.some(o=>o.value===no)) return;
     out.push({value:no, label:no, sub:((r.desc||r.tag||'')+' · added this session').trim()});
@@ -393,7 +393,7 @@ function modalDupIssues(){
   return out;
 }
 // req #3 — assets may only be created at Level 4 or deeper (structure rows — parent at
-// structure level 1/2, i.e. another class or sub class being added — are exempt)
+// structure levels, i.e. another site or asset class being added — are exempt)
 function structuralLevelIssue(){
   if(editing && editing.action==='add' && editing.parent && editing.levels.length<2 && !structRoleOf(editing))
     return [{rule:'LVL',severity:'high',message:'Assets must be created at Level 4 or deeper — choose a sub-level under this Level 3 category.'}];
@@ -489,14 +489,14 @@ function setAction(a){
   editing.action=a;
   document.querySelectorAll('#segAction button').forEach(b=>{ b.className = b.dataset.a===a ? ('on '+a) : ''; });
   $('#parentLbl').innerHTML = (a==='add')
-     ? 'Select parent asset <span class="hint">(optional — leave empty to create a top-level asset such as a site)</span>'
+     ? 'Select parent asset <span class="hint">(optional — leave empty to create a top-level asset such as a company)</span>'
      : 'Select existing asset to '+a+' <span class="req">*</span>';
 }
 function validateStructural(){
   const e=editing, probs=[];
   if(e.action==='add'){
     // §structure — a parent at level 1/2 means this row is deliberately a structure row
-    // (another Asset Class / Sub Class): classification is auto-forced, shallow levels allowed.
+    // (another Site / Asset Class): classification is auto-forced, shallow levels allowed.
     const sRole=structRoleOf(e);
     if(!e.parent && editIndex<0) probs.push('select a parent asset (new top-level Sites are created in the structure wizard)');
     if(e.parent && e.levels.length<2 && !sRole) probs.push('choose at least a Level 4 under the parent (assets cannot be created at Level 3)');
@@ -985,32 +985,31 @@ function downloadTaxonomy(){ if(!IS_ADMIN){ toast('Admin sign-in required'); ret
 function applyAdminUI(){ const DEAD=new Set(['btnSettings','btnImportData','btnFolder']); /* features replaced by the server — permanently hidden */ document.querySelectorAll('.admin-only').forEach(el=>{ const isoOnly=el.classList.contains('iso-only'); const modeOk=!isoOnly || (typeof ACTIVE!=='undefined' && ACTIVE && ACTIVE.mode!=='flat'); el.style.display = (IS_ADMIN && !DEAD.has(el.id) && modeOk) ? 'inline-flex' : 'none'; }); const b=$('#btnAdmin'); if(b) b.style.display='none'; }
 
 /* ===========================================================
-   Site context — top-level (level-1) register assets act as sites
+   Site context — level-2 register/session entries (under a company) act as sites
 =========================================================== */
 function buildSites(){
   const sel=$('#selSite'); const cur=sel.value;
   syncSession();
-  // sites = level-1 entries (register OR session) that contain at least one child (register or session)
+  // sites = level-2 entries (register OR session) that contain at least one child (register or session)
   const hasChild = no => CONTAINER_NOS.has(no) || rows.some(r=>r.action==='add' && r.parent===no);
-  const tops=ASSETS.filter(a=>assetLevel(a.no)===1 && hasChild(a.no)).map(a=>({no:a.no, desc:a.desc||a.no}));
-  rows.forEach(r=>{ if(r.action==='add' && !r.parent){ const no=r.assetNo||r.tag; if(no && hasChild(no) && !tops.some(t=>t.no===no)) tops.push({no:no, desc:r.desc||no}); } });
+  const tops=wizardEntriesAtLevel(2).filter(s=>hasChild(s.no));
   sel.innerHTML='<option value="">All sites</option>'+tops.map(s=>`<option value="${esc(s.no)}">${esc(s.desc||s.no)}</option>`).join('');
   if(cur && tops.some(t=>t.no===cur)) sel.value=cur;
 }
 function currentSite(){ const n=$('#selSite').value; if(!n) return null; const a=ASSET_BY_NO.get(n)||{}; return {name:n, desc:a.desc||''}; }
 function refreshAddBtn(){
   const ok=structureOk();
-  const gate='Complete the register structure first (Site ▸ Asset Class ▸ Asset Sub Class)';
+  const gate='Complete the register structure first (Company ▸ Site ▸ Asset Class)';
   const b=$('#btnAdd'); b.disabled=!ok; b.title=ok?'Add a new asset':gate;
   const b2=$('#btnBomEx'); if(b2){ b2.disabled=!ok; b2.title=ok?'Attach BOM items to an existing asset':gate; }
 }
 function updateDsInfo(extra){ $('#dsInfo').textContent = `${Object.keys(NODES).length} taxonomy · ${ASSETS.length} assets`+(extra?` · ${extra}`:''); }
 
 /* ===========================================================
-   Register structure wizard — Site ▸ Asset Class ▸ Asset Sub Class bootstrap + gating
+   Register structure wizard — Company ▸ Site ▸ Asset Class bootstrap + gating
 =========================================================== */
 let WIZ_OPEN=false;
-const WIZ={site:'', cls:''};   // step 2/3 selections, kept across re-renders
+const WIZ={co:'', site:''};   // step 2/3 selections, kept across re-renders
 function structureOk(){
   if(ACTIVE.mode==='flat') return true;   // flat profiles carry no hierarchy to bootstrap
   syncSession();
@@ -1048,10 +1047,19 @@ async function wizardPostRow(row, okMsg){
   if(okMsg) toast(okMsg+' · '+(saved.assetNo||saved.tag));
   return saved;
 }
+async function wizAddCompany(){
+  const name=(($('#wizCoName')||{}).value||'').trim();
+  if(!name){ toast('Enter a company name'); return; }
+  const row=blankAsset(); row.desc=name; row.tag=wizardUniqueNo('', name, 'CO');
+  const saved=await wizardPostRow(row, 'Company created');
+  if(saved) WIZ.co=saved.assetNo||saved.tag;
+}
 async function wizAddSite(){
+  const co=(($('#wizSiteCo')||{}).value||''); if(!co){ toast('Choose a company first'); return; }
   const name=(($('#wizSiteName')||{}).value||'').trim();
   if(!name){ toast('Enter a site name'); return; }
-  const row=blankAsset(); row.desc=name; row.tag=wizardUniqueNo('', name, 'SITE');
+  const row=blankAsset(); row.parent=co; row.desc=name; row.tag=wizardUniqueNo(co, name, 'SITE');
+  WIZ.co=co;
   const saved=await wizardPostRow(row, 'Site created');
   if(saved) WIZ.site=saved.assetNo||saved.tag;
 }
@@ -1065,24 +1073,7 @@ async function wizAddClass(){
   const no=proposedAssetNo(row);
   if(no && noTaken(no, null)){ toast('“'+(free||cleanName(tax))+'” already exists under this site'); return; }
   WIZ.site=site;
-  const saved=await wizardPostRow(row, 'Asset class added');
-  if(saved) WIZ.cls=saved.assetNo||saved.tag;
-}
-function wizSubTaxEntries(clsNo){
-  const lv=parentTx(clsNo)||[];
-  return lv.length ? childrenOfRules(lv[lv.length-1], lv) : [];
-}
-async function wizAddSub(){
-  const cls=(($('#wizSubCls')||{}).value||''); if(!cls){ toast('Choose an asset class first'); return; }
-  const tax=(($('#wizSubTax')||{}).value||''), free=(($('#wizSubName')||{}).value||'').trim();
-  if(!tax && !free){ toast('Pick a sub class or type one'); return; }
-  const row=blankAsset(); row.parent=cls; row.levels=(parentTx(cls)||[]).slice();
-  if(free){ row.desc=free; row.tag=wizardUniqueNo(cls, free, 'SC'); }
-  else { row.levels.push(tax); if(!levelCode(tax)) row.tag=wizardUniqueNo(cls, cleanName(tax), 'SC'); }
-  const no=proposedAssetNo(row);
-  if(no && noTaken(no, null)){ toast('“'+(free||cleanName(tax))+'” already exists under this class'); return; }
-  WIZ.cls=cls;
-  await wizardPostRow(row, 'Sub class added');
+  await wizardPostRow(row, 'Asset class added');
 }
 function wizTreeHtml(){
   const kidsOf=no=>{
@@ -1091,57 +1082,53 @@ function wizTreeHtml(){
     return out;
   };
   const line=(ind,role,e)=>'<div class="wz-node" style="padding-left:'+(ind*22)+'px"><span class="wz-role">'+esc(role)+'</span><span class="assetno">'+esc(e.no)+'</span>'+(e.desc?' <span class="muted">· '+esc(e.desc)+'</span>':'')+'</div>';
-  const sites=wizardEntriesAtLevel(1);
-  if(!sites.length) return '<div class="hint">Nothing yet — create your first site in step 1.</div>';
+  const companies=wizardEntriesAtLevel(1);
+  if(!companies.length) return '<div class="hint">Nothing yet — create your company in step 1.</div>';
   let html='';
-  sites.forEach(s=>{ html+=line(0,'SITE',s);
-    kidsOf(s.no).forEach(c=>{ html+=line(1,'ASSET CLASS',c);
-      kidsOf(c.no).forEach(x=>{ html+=line(2,'ASSET SUB CLASS',x); }); }); });
+  companies.forEach(co=>{ html+=line(0,'COMPANY',co);
+    kidsOf(co.no).forEach(s=>{ html+=line(1,'SITE',s);
+      kidsOf(s.no).forEach(c=>{ html+=line(2,'ASSET CLASS',c); }); }); });
   return html;
 }
 function renderWizard(ok){
   const host=$('#structWizard'); if(!host) return;
-  const sites=wizardEntriesAtLevel(1), classes=wizardEntriesAtLevel(2);
+  const companies=wizardEntriesAtLevel(1), sites=wizardEntriesAtLevel(2);
+  if(!WIZ.co || !companies.some(c=>c.no===WIZ.co)) WIZ.co = companies.length?companies[0].no:'';
   if(!WIZ.site || !sites.some(s=>s.no===WIZ.site)) WIZ.site = sites.length?sites[0].no:'';
-  if(!WIZ.cls || !classes.some(c=>c.no===WIZ.cls)) WIZ.cls = classes.length?classes[0].no:'';
   const selOpts=(arr,cur)=>arr.map(o=>'<option value="'+esc(o.no)+'"'+(o.no===cur?' selected':'')+'>'+esc(o.desc||o.no)+' ('+esc(o.no)+')</option>').join('');
-  // class names = major categories (taxonomy siteRoots / cascade top level); sub-class names =
-  // the chosen class's taxonomy children (minor categories) — free text overrides either
+  // class names = major categories (taxonomy siteRoots / cascade top level) — free text overrides
   const clsTaxOpts='<option value="">— pick from taxonomy —</option>'+ROOTS.slice().sort((a,b)=>descOf(a).localeCompare(descOf(b))).map(v=>'<option value="'+esc(v)+'">'+esc(descOf(v))+'</option>').join('');
-  const subEntries=WIZ.cls?wizSubTaxEntries(WIZ.cls):[];
-  const subTaxOpts='<option value="">'+(subEntries.length?'— pick from taxonomy —':'— no taxonomy values — type one below —')+'</option>'+taxOptionsFromEntries(subEntries).map(o=>'<option value="'+esc(o.value)+'">'+esc(o.label)+'</option>').join('');
   host.innerHTML=
     '<div class="wz-title">Set up your register structure</div>'+
-    '<div class="wz-sub">Assets need one complete chain of <b>Site ▸ Asset Class ▸ Asset Sub Class</b> before they can be added. Each step creates a normal onboarding row — saved to drafts, exported to CSV and promoted to the register like any other.</div>'+
+    '<div class="wz-sub">Assets need one complete chain of <b>Company ▸ Site ▸ Asset Class</b> before they can be added. Each step creates a normal onboarding row — saved to drafts, exported to CSV and promoted to the register like any other.</div>'+
     '<div class="wz-steps">'+
-      '<div class="wz-step"><div class="wz-n">1</div><b>Create a Site</b><span>Top level — no parent needed</span>'+
-        '<input class="text" id="wizSiteName" placeholder="Site name, e.g. NORTH PLANT" autocomplete="off">'+
-        '<button class="btn primary sm" id="wizAddSite" type="button">＋ Create site</button></div>'+
-      '<div class="wz-step'+(sites.length?'':' off')+'"><div class="wz-n">2</div><b>Add Asset Classes</b><span>Major categories under a site</span>'+
+      '<div class="wz-step"><div class="wz-n">1</div><b>Create a Company</b><span>Top level — no parent needed</span>'+
+        '<input class="text" id="wizCoName" placeholder="Company name, e.g. B2BEM" autocomplete="off">'+
+        '<button class="btn primary sm" id="wizAddCo" type="button">＋ Create company</button></div>'+
+      '<div class="wz-step'+(companies.length?'':' off')+'"><div class="wz-n">2</div><b>Add Sites</b><span>Locations under the company</span>'+
+        '<select class="native" id="wizSiteCo"'+(companies.length?'':' disabled')+'>'+selOpts(companies,WIZ.co)+'</select>'+
+        '<input class="text" id="wizSiteName" placeholder="Site name, e.g. NORTH PLANT" autocomplete="off"'+(companies.length?'':' disabled')+'>'+
+        '<button class="btn primary sm" id="wizAddSite" type="button"'+(companies.length?'':' disabled')+'>＋ Add site</button></div>'+
+      '<div class="wz-step'+(sites.length?'':' off')+'"><div class="wz-n">3</div><b>Add Asset Classes</b><span>Major categories under a site</span>'+
         '<select class="native" id="wizClsSite"'+(sites.length?'':' disabled')+'>'+selOpts(sites,WIZ.site)+'</select>'+
         '<select class="native" id="wizClsTax"'+(sites.length?'':' disabled')+'>'+clsTaxOpts+'</select>'+
         '<input class="text" id="wizClsName" placeholder="…or type a custom class" autocomplete="off"'+(sites.length?'':' disabled')+'>'+
         '<button class="btn primary sm" id="wizAddCls" type="button"'+(sites.length?'':' disabled')+'>＋ Add class</button></div>'+
-      '<div class="wz-step'+(classes.length?'':' off')+'"><div class="wz-n">3</div><b>Add Sub Classes</b><span>Minor categories under a class</span>'+
-        '<select class="native" id="wizSubCls"'+(classes.length?'':' disabled')+'>'+selOpts(classes,WIZ.cls)+'</select>'+
-        '<select class="native" id="wizSubTax"'+(classes.length?'':' disabled')+'>'+subTaxOpts+'</select>'+
-        '<input class="text" id="wizSubName" placeholder="…or type a custom sub class" autocomplete="off"'+(classes.length?'':' disabled')+'>'+
-        '<button class="btn primary sm" id="wizAddSub" type="button"'+(classes.length?'':' disabled')+'>＋ Add sub class</button></div>'+
     '</div>'+
     '<div class="wz-tree">'+wizTreeHtml()+'</div>'+
     '<div class="wz-foot">'+(ok
       ?'<button class="btn primary" id="wizFinish" type="button">Finish — start adding assets</button>'
-      :'<span class="hint">Complete one full Site ▸ Asset Class ▸ Asset Sub Class chain to finish.</span>')+'</div>';
+      :'<span class="hint">Complete one full Company ▸ Site ▸ Asset Class chain to finish.</span>')+'</div>';
+  $('#wizAddCo').onclick=wizAddCompany;
   $('#wizAddSite').onclick=wizAddSite;
   $('#wizAddCls').onclick=wizAddClass;
-  $('#wizAddSub').onclick=wizAddSub;
+  const co=$('#wizSiteCo'); if(co) co.onchange=()=>{ WIZ.co=co.value; };
   const cs=$('#wizClsSite'); if(cs) cs.onchange=()=>{ WIZ.site=cs.value; };
-  const sc=$('#wizSubCls'); if(sc) sc.onchange=()=>{ WIZ.cls=sc.value; renderWizard(ok); };   // re-render: sub-class taxonomy follows the class
-  const fin=$('#wizFinish'); if(fin) fin.onclick=()=>{ WIZ_OPEN=false; renderRows(); toast('Structure complete — add assets under your sub classes'); };
+  const fin=$('#wizFinish'); if(fin) fin.onclick=()=>{ WIZ_OPEN=false; renderRows(); toast('Structure complete — add assets under your asset classes'); };
 }
 function updateWizard(){
   const wiz=$('#structWizard'); if(!wiz) return;
-  buildSites();   // site dropdown tracks session rows too (level-1 entries with children)
+  buildSites();   // site dropdown tracks session rows too (level-2 entries with children)
   const ok=structureOk();
   if(!ok) WIZ_OPEN=true;   // wizard reappears whenever the structure becomes incomplete again
   const show=WIZ_OPEN && ACTIVE.mode!=='flat';
@@ -1365,7 +1352,7 @@ function init(){
     if(de){ const i=+de.dataset.del; if(confirm('Delete asset #'+(i+1)+'?')){ const r=rows[i]; if(r && r.id!=null){ try{ const res=await fetch('/api/rows/'+r.id,{method:'DELETE'}); if(!res.ok) throw new Error('HTTP '+res.status); }catch(err){ toast('Delete failed — server unreachable'); return; } } rows.splice(i,1);renderRows();persistLocal();toast('Asset deleted');} }
   });
   $('#selSite').onchange=refreshAddBtn;
-  // req #5 — reopen the structure wizard to add another site / class / sub class (multi-site companies)
+  // req #5 — reopen the structure wizard to add another company / site / asset class
   const bns=$('#btnNewSite'); if(bns) bns.onclick=()=>{ WIZ_OPEN=true; updateWizard(); const w=$('#structWizard'); if(w) w.scrollIntoView({behavior:'smooth',block:'center'}); };
   refreshAddBtn();
   $('#btnSave').onclick=saveDraft;
