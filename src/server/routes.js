@@ -8,7 +8,7 @@ import { requireUser, requireAdmin } from './auth.js';
 import { refreshDataset, buildDataset } from './dataset.js';
 import { recompute, dbRowToWireRow, dbRowToDomainRow, loadUserRows, loadUserBomExisting, loadUserUnpromotedTax } from './rowCompute.js';
 import { withSession } from '../shared/domain/session.js';
-import { buildCSV, buildBOMCSV, buildTaxCSV, withBom, exportFileBase } from '../shared/domain/csv.js';
+import { buildCSV, buildBOMCSV, buildTaxCSV, withBom, exportFileBase, sanitizeFileName } from '../shared/domain/csv.js';
 import { perthISO } from '../shared/domain/time.js';
 import { ASSET_BY_NO } from '../shared/domain/data.js';
 
@@ -307,24 +307,26 @@ function sendCsv(res, filenameBase, body) {
   res.setHeader('Content-Disposition', `attachment; filename="${filenameBase}.csv"`);
   res.send(withBom(body));
 }
+// req #4 — optional ?name= overrides the export file-name base (sanitized); null falls back to exportFileBase()
+function exportNameQuery(req) { const q = (req.query && typeof req.query.name === 'string') ? req.query.name.trim() : ''; return q ? sanitizeFileName(q) : null; }
 
 router.get('/export/onboarding.csv', (req, res) => {
   const session = exportSessionFor(req.user.upn);
-  const { body, base } = withSession(session, () => ({ body: buildCSV(), base: exportFileBase() }));
+  const { body, base } = withSession(session, () => ({ body: buildCSV(), base: exportNameQuery(req) || exportFileBase() }));
   audit(req.user.upn, 'export', { type: 'onboarding' });
   sendCsv(res, base, body);
 });
 
 router.get('/export/bom.csv', (req, res) => {
   const session = exportSessionFor(req.user.upn);
-  const { body, base } = withSession(session, () => ({ body: buildBOMCSV(), base: exportFileBase() + ' - BOM' }));
+  const { body, base } = withSession(session, () => ({ body: buildBOMCSV(), base: (exportNameQuery(req) || exportFileBase()) + ' - BOM' }));
   audit(req.user.upn, 'export', { type: 'bom' });
   sendCsv(res, base, body);
 });
 
 router.get('/export/taxonomy.csv', (req, res) => {
   const session = exportSessionFor(req.user.upn);
-  const { body, base } = withSession(session, () => ({ body: buildTaxCSV(), base: exportFileBase() + ' - Taxonomy Additions' }));
+  const { body, base } = withSession(session, () => ({ body: buildTaxCSV(), base: (exportNameQuery(req) || exportFileBase()) + ' - Taxonomy Additions' }));
   audit(req.user.upn, 'export', { type: 'taxonomy' });
   sendCsv(res, base, body);
 });

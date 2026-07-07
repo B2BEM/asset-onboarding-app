@@ -210,3 +210,28 @@ export function buildProfileCSV(profile, opts){
   canonical.slice(1).forEach(r => out.push(cols.map(c => { const i = idxOf[c.source]; return i == null ? '' : (r[i] || ''); })));
   return CSV_BOM + out.map(line).join('\r\n') + '\r\n';
 }
+
+// "Adopt this file's format": build a flat profile whose columns ARE the loaded CSV's header row
+// (in order). Blank headers get a positional name so every column is valid; duplicates are allowed
+// (records key by column position, not header text — see flatRowsFromGrid). Nothing is saved here.
+export function profileFromHeaders(headers, name){
+  const cols = (headers || []).map((h, i) => {
+    const header = String(h == null ? '' : h).trim() || ('Column ' + (i + 1));
+    return { key: 'c' + i, header, source: 'custom', include: true, required: false };
+  });
+  if(!cols.length) cols.push({ key: 'c0', header: 'Column 1', source: 'custom', include: true, required: false });
+  return { id: newId('erp'), name: (name && String(name).trim()) || 'Imported format', erpType: 'adopted',
+    mode: 'flat', builtIn: false, columns: cols, importMap: {} };
+}
+
+// Build flat records straight from a grid whose columns line up 1:1 with the profile's columns
+// (the adopt case). Positional, so it is robust to duplicate/blank headers where header-string
+// mapping would collide. Blank data rows are dropped; short rows pad missing cells with ''.
+export function flatRowsFromGrid(grid, profile){
+  const cols = profile.columns;
+  return (grid || []).slice(1).filter(r => r.some(c => (c || '').trim() !== '')).map((r, n) => {
+    const values = {};
+    cols.forEach((c, i) => { values[c.key] = (r[i] == null ? '' : r[i]); });
+    return { id: 'f' + Date.now().toString(36) + n, values };
+  });
+}

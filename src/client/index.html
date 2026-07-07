@@ -3,16 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ISO 55001 — Asset Onboarding</title>
+<title>ERP Asset & Inventory Onboarding</title>
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <header class="app">
   <div class="brand">
-    <div class="mark">ISO</div>
+    <div class="mark"><span class="m1">B2B</span><span class="m2">EM</span></div>
     <div>
-      <h1>Asset Onboarding</h1>
-      <p>Vendor-neutral asset register</p>
+      <h1>ERP Asset &amp; Inventory Onboarding</h1>
     </div>
   </div>
   <div class="spacer"></div>
@@ -44,25 +43,25 @@
 
   <div class="context" id="projectBar">
     <div class="field">
-      <label>Project manager</label>
+      <label>Asset / Inventory Requestor</label>
       <input class="text" id="pmName" placeholder="Name" autocomplete="off">
     </div>
     <div class="field">
-      <label>Project number</label>
-      <input class="text" id="pmNumber" placeholder="e.g. PRJ-00123" autocomplete="off">
+      <label>Department ID</label>
+      <input class="text" id="pmNumber" placeholder="e.g. OPS-01" autocomplete="off">
     </div>
     <div class="field">
-      <label>Project start date</label>
-      <div class="datefield"><input class="text d-text" id="pmStart" placeholder="date or free text" autocomplete="off"><input type="date" class="d-pick" tabindex="-1" aria-label="Pick project start date"></div>
+      <label>Onboarding date</label>
+      <div class="datefield"><input class="text d-text" id="pmStart" placeholder="date or free text" autocomplete="off"><input type="date" class="d-pick" tabindex="-1" aria-label="Pick onboarding date"></div>
     </div>
     <div class="field">
-      <label>Expected completion date</label>
-      <div class="datefield"><input class="text d-text" id="pmEnd" placeholder="date or free text" autocomplete="off"><input type="date" class="d-pick" tabindex="-1" aria-label="Pick expected completion date"></div>
+      <label>Required by</label>
+      <div class="datefield"><input class="text d-text" id="pmEnd" placeholder="date or free text" autocomplete="off"><input type="date" class="d-pick" tabindex="-1" aria-label="Pick required-by date"></div>
     </div>
     <div class="grow"></div>
     <div class="field" style="min-width:auto">
       <label>Export file name</label>
-      <div class="hint" id="exportNameHint">—</div>
+      <input class="text" id="exportNameInput" placeholder="—" autocomplete="off" title="Leave blank to use the automatic name">
     </div>
   </div>
 
@@ -72,6 +71,7 @@
       <select class="native" id="selSite"></select>
     </div>
     <div class="ctx-check" style="font-style:italic;opacity:.85">Parent assets are limited to the selected site.</div>
+    <button class="btn sm" id="btnNewSite" title="Open the structure wizard to add another site, asset class or sub class"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New site</button>
     <div class="grow"></div>
     <div class="field" style="min-width:auto">
       <label>Dataset</label>
@@ -154,7 +154,6 @@
           <span><code>*</code> asset class</span>
           <span><code>"</code> space</span>
           <span><code>(</code> context</span>
-          <span style="color:var(--teal)">Under <b>Outload</b>, Fixed&nbsp;Plant shows as <b>PCA</b> &amp; Structure as <b>CIV</b>.</span>
         </div>
         <div class="cascade" id="cascade"></div>
       </div>
@@ -384,6 +383,7 @@
       <div id="erpMapRows"></div>
     </div>
     <div class="modal-foot">
+      <button class="btn" id="erpMapAdopt" title="Make this file’s columns the active format — new records and exports will match it exactly">Adopt this file’s format</button>
       <div class="spacer"></div>
       <button class="btn" id="erpMapCancel">Cancel</button>
       <button class="btn primary" id="erpMapImport">Import</button>

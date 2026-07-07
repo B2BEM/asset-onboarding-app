@@ -97,5 +97,19 @@ withSession({ rows: [siteRow], PROJECT: { pm: '', number: '', start: '', end: ''
   check('iso reprojection maps values + blanks custom cols', lines[1] === 'SITE1,ACME,', lines[1]);
 });
 
+// --- adopt format from a loaded CSV: flat profile from headers, positional rows, byte-identical round trip
+{
+  const grid = [['Asset No', 'Description', 'Location'], ['A1', 'Pump', 'Site A'], ['A2', 'Motor, big', 'Site B']];
+  const p = EP.profileFromHeaders(grid[0], 'My Register');
+  check('adopt: flat profile from headers', p.mode === 'flat' && !p.builtIn && p.columns.map(c => c.header).join('|') === 'Asset No|Description|Location', p.columns.map(c => c.header));
+  const fr = EP.flatRowsFromGrid(grid, p);
+  check('adopt: rows built positionally', fr.length === 2 && fr[0].values[p.columns[0].key] === 'A1' && fr[1].values[p.columns[2].key] === 'Site B', fr);
+  const out = EP.parseCSV(EP.buildProfileCSV(p, { rows: fr }).replace(/^﻿/, '')).filter(r => r.some(c => (c || '').trim() !== ''));
+  check('adopt: export header == file header', out[0].join('|') === 'Asset No|Description|Location', out[0]);
+  check('adopt: export row values preserved (incl. comma)', out[1].join('|') === 'A1|Pump|Site A' && out[2].join('|') === 'A2|Motor, big|Site B', out.slice(1));
+  const blank = EP.profileFromHeaders(['', 'X'], '');
+  check('adopt: blank header auto-named + default name', blank.name === 'Imported format' && blank.columns[0].header === 'Column 1' && blank.columns[1].header === 'X', { name: blank.name, headers: blank.columns.map(c => c.header) });
+}
+
 if(failures){ console.error('ERP GATE: FAIL —', failures); process.exit(1); }
 console.log('ERP GATE: PASS');

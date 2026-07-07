@@ -6,7 +6,7 @@
 import { initData, NODES, EDGES, ROOTS, ASSETS, DEPTS, SITES, LOCS, ASSET_NOS, TAKEN_NOS, ASSET_BY_NO, CONTAINER_NOS, rebuildAssetIndex, assetLevel, nodeOf, childrenOf, descOf, rootByCode } from '../shared/domain/data.js';
 import { bindSession } from '../shared/domain/session.js';
 import { RULES } from '../shared/domain/rules.js';
-import { cleanName, isGroupNode, relabelGroup, plainNode, underOutload, transformedChildren, childrenOfRules, descOfRules } from '../shared/domain/cascade.js';
+import { cleanName, isGroupNode, plainNode, transformedChildren, childrenOfRules, descOfRules } from '../shared/domain/cascade.js';
 import { parentTx, levelCode, inheritedLen, newLeafLevel, leafCodeOf, newSegments, basePrefix, leafEnumerable, noTaken, nextSequence, autoAssetNo, proposedAssetNo, proposedAssetDesc } from '../shared/domain/numbering.js';
 import { lastLevel, assetTypeOf, taxChildCountOf, rowChildCount, engineInput, takenAbbrevs, classOf, dataIssuesFor, computeForRow, rowStructLevel, structRoleOf } from '../shared/domain/engine.js';
 import { STRUCTURE_ROLES, roleOfLevel, structureComplete } from '../shared/domain/structure.js';
@@ -271,15 +271,20 @@ function level3FromParent(parentNo){ const t=parentTx(parentNo); return (t&&t.le
 function renderCascade(){
   const host = $('#cascade'); host.innerHTML=''; cascadeCombos.length=0;
   const lv = editing.levels;
-  // A parent's taxonomy path auto-fills below (editable). Without a parent the row is a
-  // top-level structure asset (e.g. a site) and the cascade starts at the functional roots.
+  const inh = (parentTx(editing.parent)||[]).length;   // levels inherited from the parent — shown as context, never re-picked
+  // req #12 — a parent's taxonomy path is inherited; the cascade only offers the levels BELOW the
+  // selected parent. Without a parent the row is a top-level structure asset and the cascade starts at the roots.
   if(!editing.parent){
     const note=document.createElement('div'); note.className='lvl leafnote';
     note.innerHTML='<div class="hint">No parent selected — this row will be a top-level asset (e.g. a site or facility). Enter the Asset / Tag name (and optionally a top category below), or select a parent asset above to nest under it.</div>';
     host.appendChild(note);
+  } else if(inh>0){
+    const note=document.createElement('div'); note.className='lvl leafnote';
+    const path=lv.slice(0,inh).map(v=>descOf(v)||cleanName(v)).filter(Boolean).join(' ▸ ');
+    note.innerHTML='<div class="hint">Adding under <b>'+esc(editing.parent)+'</b>'+(path?' · '+esc(path):'')+' — choose the level below (next is Level '+(inh+3)+').</div>';
+    host.appendChild(note);
   }
-  const inh = (parentTx(editing.parent)||[]).length;   // how many levels are inherited from the parent
-  for(let i=0;i<13;i++){
+  for(let i=inh;i<13;i++){
     let entries; const parentVal = i>0 ? lv[i-1] : null;
     if(i===0){ entries = ROOTS.map(v=>({value:v,display:v})); }
     else { if(!parentVal) break; entries = childrenOfRules(parentVal, lv.slice(0,i)); }
@@ -294,7 +299,7 @@ function renderCascade(){
       continue;
     }
     const row = document.createElement('div'); row.className='lvl';
-    row.innerHTML = '<div class="lname">Level '+(i+3)+(i<inh?' <span class="hint" style="font-weight:600">·prnt</span>':'')+'</div><div class="lvlbody" style="display:flex;flex-direction:column;gap:5px"><div class="combo cmb"></div><div class="taxslot"></div></div>';
+    row.innerHTML = '<div class="lname">Level '+(i+3)+'</div><div class="lvlbody" style="display:flex;flex-direction:column;gap:5px"><div class="combo cmb"></div><div class="taxslot"></div></div>';
     host.appendChild(row);
     const c = Combo(row.querySelector('.cmb'), { placeholder: i===0?'Choose top category…':'Choose…',
       options: taxOptionsFromEntries(entries),
@@ -396,7 +401,7 @@ function structuralLevelIssue(){
 }
 function buildClassSelect(){
   const sel=$('#selClass');
-  const opts=['','PRIMARY (P)','SECONDARY (S)','REFERENCE','REFERENCE - SUB','EQUIPMENT GROUP - EQUIPMENT TYPE'];
+  const opts=['','REFERENCE','REFERENCE - SUB','EQUIPMENT GROUP - EQUIPMENT TYPE'];
   sel.innerHTML = opts.map((o,i)=> i===0 ? '<option value="">Auto</option>' : '<option value="'+esc(o)+'">'+esc(o)+'</option>').join('');
 }
 
@@ -560,8 +565,7 @@ async function saveRow(addAnother){
 =========================================================== */
 function taxPathHtml(levels){
   if(!levels.length) return '<span class="muted">—</span>';
-  const uo = underOutload(levels);
-  const parts = levels.map((v,i)=>{ const label = (uo && isGroupNode(v)) ? cleanName(relabelGroup(v).display) : (NODES[v]?descOf(v):v+' ⚠');
+  const parts = levels.map((v,i)=>{ const label = NODES[v]?descOf(v):v+' ⚠';
     return i===levels.length-1 ? `<span class="leaf">${esc(label)}</span>` : esc(label); });
   return `<div class="tax-path">${parts.join(' <span class="muted">›</span> ')}</div>`;
 }
@@ -653,6 +657,9 @@ function download(name, text, mime){
   const blob=new Blob([text],{type:mime||'text/plain'}), url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
+// req #4 — free-text export file name: a non-empty PROJECT.exportName overrides the auto-generated base
+function exportNameOverride(){ return (PROJECT.exportName||'').trim(); }
+function currentExportBase(){ const o=exportNameOverride(); return o ? sanitizeFileName(o) : exportFileBase(); }
 function exportCSV(){
   syncSession();
   if(!rows.length){toast('Add at least one asset first');return;}
@@ -664,7 +671,7 @@ function exportCSV(){
       if(short && !confirm('Export with ' + short + ' record(s) missing required fields?')) return;
     }
     const csv = ERP.buildProfileCSV(ACTIVE, { rows, buildCSV });
-    download(exportFileBase() + '.csv', csv, 'text/csv;charset=utf-8');
+    download(currentExportBase() + '.csv', csv, 'text/csv;charset=utf-8');
     toast('Exported “' + ACTIVE.name + '” to CSV');
     return;
   }
@@ -679,10 +686,11 @@ function exportCSV(){
   const anyBom = rows.some(r=>isItemRow(r) && r.bom && r.bom.length) || BOM_EXISTING.some(e=>e.bom && e.bom.length);
   const tail=rows.length+' asset'+(rows.length>1?'s':'')+(anyBom?' + BOM':'')+(NEW_TAX.length?' + '+NEW_TAX.length+' new taxonomy':'');
   // storage seam: the server assembles the CSVs (and adds the UTF-8 BOM); sequential navigations with small delays
-  window.location = '/api/export/onboarding.csv';
+  const nameQ = exportNameOverride() ? ('?name='+encodeURIComponent(exportNameOverride())) : '';
+  window.location = '/api/export/onboarding.csv'+nameQ;
   let delay=800;
-  if(anyBom){ setTimeout(()=>{ window.location = '/api/export/bom.csv'; }, delay); delay+=800; }
-  if(NEW_TAX.length){ setTimeout(()=>{ window.location = '/api/export/taxonomy.csv'; }, delay); }
+  if(anyBom){ setTimeout(()=>{ window.location = '/api/export/bom.csv'+nameQ; }, delay); delay+=800; }
+  if(NEW_TAX.length){ setTimeout(()=>{ window.location = '/api/export/taxonomy.csv'+nameQ; }, delay); }
   toast('Exported '+tail+' to CSV');
 }
 function downloadTemplate(){
@@ -789,16 +797,17 @@ async function syncImportedRows(imported, removedRows, errMsg){
 =========================================================== */
 function persistLocal(){ syncSession(); scheduleAutosave(); }   // storage seam: debounced server autosave replaces browser storage
 /* ---------- project header (PM, number, start/completion dates) — also drives the export file name ---------- */
-let PROJECT = {pm:'', number:'', start:'', end:''};
-function fillProjectInputs(){ const m={pmName:'pm',pmNumber:'number',pmStart:'start',pmEnd:'end'}; for(const id in m){ const el=$('#'+id); if(el) el.value=PROJECT[m[id]]||''; } }
+let PROJECT = {pm:'', number:'', start:'', end:'', exportName:''};
+function fillProjectInputs(){ const m={pmName:'pm',pmNumber:'number',pmStart:'start',pmEnd:'end',exportNameInput:'exportName'}; for(const id in m){ const el=$('#'+id); if(el) el.value=PROJECT[m[id]]||''; } }
 function persistProject(){ syncSession(); scheduleAutosave(); updateExportNameHint(); }
 /* ---------- all generated dates/times use Perth (AWST, UTC+8), not the machine clock or UTC ---------- */
-function updateExportNameHint(){ const el=$('#exportNameHint'); if(el) el.textContent=exportFileBase()+'.csv'; }
+// req #4 — the field is now an editable override; show the auto-generated name as its placeholder
+function updateExportNameHint(){ const el=$('#exportNameInput'); if(el) el.placeholder=exportFileBase()+'.csv'; }
 async function newProject(){
   if(rows.length && !confirm('Start a new project? Your current '+rows.length+' row(s) will be cleared.\n\n(Your current work is auto-saved as a draft first.)')) return;
   try{ await saveDraft(); }catch(_){}
   const prevServerRows=rows.filter(r=>r.id!=null);
-  rows=[]; BOM_EXISTING=[]; NEW_TAX=[]; PROJECT={pm:'',number:'',start:'',end:''};   // keep the active ERP profile
+  rows=[]; BOM_EXISTING=[]; NEW_TAX=[]; PROJECT={pm:'',number:'',start:'',end:'',exportName:''};   // keep the active ERP profile
   syncSession(); reapplyOverrides(); fillProjectInputs(); updateExportNameHint(); applyProfileUI(); persistLocal(); persistProject();
   // server-side exports read server rows, so the cleared rows must be removed there too
   syncImportedRows([], prevServerRows, 'Old rows could not all be removed from the server — they may still appear in exports');
@@ -815,7 +824,7 @@ async function saveDraft(){
     toast('Draft saved — '+name);
   }catch(e){ toast('Draft save failed — server unreachable'); }
 }
-function loadDraftObj(o){ if(!o) return; const prevServerRows=rows.filter(r=>r.id!=null); rows=(o&&o.rows)||[]; BOM_EXISTING=(o&&o.bomExisting)||[]; PROJECT=Object.assign({pm:'',number:'',start:'',end:''}, (o&&o.project)||{}); NEW_TAX=(o&&o.newTax)||[];
+function loadDraftObj(o){ if(!o) return; const prevServerRows=rows.filter(r=>r.id!=null); rows=(o&&o.rows)||[]; BOM_EXISTING=(o&&o.bomExisting)||[]; PROJECT=Object.assign({pm:'',number:'',start:'',end:'',exportName:''}, (o&&o.project)||{}); NEW_TAX=(o&&o.newTax)||[];
   // restore the draft's ERP profile (profileId rides inside project_json — server schema unchanged)
   const pid=(o&&o.profileId)||(o&&o.project&&o.project.profileId)||null;
   delete PROJECT.profileId;
@@ -864,7 +873,7 @@ function readCsvFile(file){ const r=new FileReader(); r.onload=()=>{ try{
   // straight through when every header is already saved or resolved exactly (the
   // app's own template / a re-imported file never shows the modal)
   if(allSaved || allExact){ applyImport(grid, map); return; }
-  openMapModal(grid, map);
+  openMapModal(grid, map, file.name);
 }catch(e){ toast('Could not read CSV: '+e.message); } }; r.readAsText(file); }
 
 function applyImport(grid, map){
@@ -880,7 +889,7 @@ function applyImport(grid, map){
   }
 }
 
-function openMapModal(grid, guess){
+function openMapModal(grid, guess, fname){
   const headers=grid[0];
   const cat=ERP.catalogue(ACTIVE);
   const optionsFor=sel=>'<option value="">— Ignore —</option>'+
@@ -891,9 +900,26 @@ function openMapModal(grid, guess){
       '<select class="native erp-target">'+optionsFor(guess[h]||'')+'</select>'+
     '</div>').join('');
   $('#erpMapBg').__grid=grid;
+  $('#erpMapBg').__fname=fname||'';
   $('#erpMapBg').classList.add('open');
 }
-function closeMapModal(){ $('#erpMapBg').classList.remove('open'); $('#erpMapBg').__grid=null; }
+function closeMapModal(){ $('#erpMapBg').classList.remove('open'); $('#erpMapBg').__grid=null; $('#erpMapBg').__fname=null; }
+// "Adopt this file's format": turn the loaded CSV's own headers into a new flat profile, make it
+// active, and load the file's rows as flat records. New records + exports then match the file exactly.
+function adoptCsvFormat(){
+  const grid=$('#erpMapBg').__grid;
+  if(!grid || !grid[0] || !grid[0].length){ toast('No CSV to adopt'); return; }
+  const fname=$('#erpMapBg').__fname||'';
+  const baseName=fname.replace(/\.[^.]+$/,'').trim() || 'Imported format';
+  const profile=ERP.profileFromHeaders(grid[0], baseName);
+  const newRows=ERP.flatRowsFromGrid(grid, profile);
+  if(rows.length && !confirm('Adopt “'+baseName+'” as the active format and replace the current '+rows.length+' row(s) with '+newRows.length+' row(s) from the file?\n\nOK = adopt & replace · Cancel = keep current format')) return;
+  ERP.saveProfile(profile); ACTIVE=profile; ERP.setActive(profile.id);
+  rows=newRows;
+  closeMapModal(); syncSession(); applyProfileUI(); persistLocal();
+  showBanner('Adopted “'+esc(baseName)+'” as the active format — '+profile.columns.length+' column(s), '+newRows.length+' record(s) imported. New records and exports now use this exact format.');
+  toast('Format adopted: '+baseName);
+}
 
 /* ---------- admin: server-side register update + dataset refresh (replaces folder sync) ---------- */
 async function refreshBootstrap(){
@@ -1247,6 +1273,7 @@ function init(){
   $('#pmNumber').oninput=()=>{ PROJECT.number=$('#pmNumber').value; persistProject(); };
   $('#pmStart').oninput=()=>{ PROJECT.start=$('#pmStart').value; persistProject(); };
   $('#pmEnd').oninput=()=>{ PROJECT.end=$('#pmEnd').value; persistProject(); };
+  $('#exportNameInput').oninput=()=>{ PROJECT.exportName=$('#exportNameInput').value; persistProject(); };
   document.querySelectorAll('#projectBar .datefield').forEach(wireDateField);
   buildSites();
   updateDsInfo();
@@ -1300,6 +1327,8 @@ function init(){
     if(de){ const i=+de.dataset.del; if(confirm('Delete asset #'+(i+1)+'?')){ const r=rows[i]; if(r && r.id!=null){ try{ const res=await fetch('/api/rows/'+r.id,{method:'DELETE'}); if(!res.ok) throw new Error('HTTP '+res.status); }catch(err){ toast('Delete failed — server unreachable'); return; } } rows.splice(i,1);renderRows();persistLocal();toast('Asset deleted');} }
   });
   $('#selSite').onchange=refreshAddBtn;
+  // req #5 — reopen the structure wizard to add another site / class / sub class (multi-site companies)
+  const bns=$('#btnNewSite'); if(bns) bns.onclick=()=>{ WIZ_OPEN=true; updateWizard(); const w=$('#structWizard'); if(w) w.scrollIntoView({behavior:'smooth',block:'center'}); };
   refreshAddBtn();
   $('#btnSave').onclick=saveDraft;
   $('#btnNew').onclick=newProject;
@@ -1322,6 +1351,7 @@ function init(){
   if($('#btnRegister')) $('#btnRegister').onclick=updateRegister;
   /* ---------- CSV import column-mapping ---------- */
   $('#erpMapX').onclick=$('#erpMapCancel').onclick=closeMapModal;
+  { const a=$('#erpMapAdopt'); if(a) a.onclick=adoptCsvFormat; }
   $('#erpMapBg').addEventListener('mousedown',e=>{ if(e.target===$('#erpMapBg')) closeMapModal(); });
   $('#erpMapImport').onclick=()=>{
     const map={};

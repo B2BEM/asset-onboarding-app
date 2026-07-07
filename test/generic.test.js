@@ -61,7 +61,7 @@ withSession({ rows:[siteRow, clsRow, subRow, shallowRow], PROJECT, BOM_EXISTING:
 });
 
 // --- ISO 55001 asset attributes: optional (warn-if-missing, never block), CSV columns present
-const ISO_COLS = ['CRITICALITY','CONDITION','LIFE-CYCLE STAGE','ASSET FUNCTION / PURPOSE','VALUE TO ORGANIZATION'];
+const ISO_COLS = ['CRITICALITY','CONDITION','LIFE-CYCLE STAGE','ASSET FUNCTION / PURPOSE','REPLACEMENT COST'];
 ISO_COLS.forEach(c => check('CSV header includes '+c, CSV_HEADERS.includes(c), null));
 
 // item asset sits at structure level 4 (under the Sub Class) — ISO attribute warnings apply there

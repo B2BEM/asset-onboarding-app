@@ -37,11 +37,10 @@ npm test         # generic rule-regression gate
 
 ## ISO 55001 asset attributes
 
-Item assets carry five optional ISO-framed attributes: **Criticality, Condition,
-Life-cycle stage, Asset function / purpose, Value**. Missing values are flagged
-(warned) but never block export. The ⓘ tooltips carry working definitions;
-substitute verbatim AS ISO 55000/55001 clause text in
-`src/shared/domain/fields.js` (`FIELD_INFO`) if you hold the standards.
+Item assets carry five optional attributes: **Criticality, Condition,
+Life-cycle stage, Asset function / purpose, Replacement cost**. Missing values are
+flagged (warned) but never block export. The ⓘ tooltips carry the B2BEM working
+definitions; edit them in `src/shared/domain/fields.js` (`FIELD_INFO`).
 
 ## Deployment
 
