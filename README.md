@@ -42,6 +42,24 @@ Life-cycle stage, Asset function / purpose, Replacement cost**. Missing values a
 flagged (warned) but never block export. The ⓘ tooltips carry the B2BEM working
 definitions; edit them in `src/shared/domain/fields.js` (`FIELD_INFO`).
 
+## Admin: taxonomy import / export
+
+Admins can replace the whole classification taxonomy from a CSV (ISO-mode only; the
+admin ⋯ menu → **Import taxonomy** / **Download taxonomy**). The file uses the same five
+columns as the taxonomy export — `TAXONOMY VALUE, TAXONOMY TYPE, CODE, DESCRIPTION,
+PARENT TAXONOMY VALUE` (the inverse of `buildTaxCSV`) — where an empty parent marks a root.
+
+- **Import** (`POST /api/admin/taxonomy-import`) **fully replaces** `taxonomy_nodes` /
+  `taxonomy_edges` / `site_roots`; the asset register (`assets` / `taken_nos`) is untouched.
+  Validation is strict and all-or-nothing (missing columns, blank/duplicate values, orphan
+  parents, cycles, or no root are rejected with the full error list — nothing is written).
+- **Download** (`GET /api/admin/taxonomy.csv`) exports the current full taxonomy in the same
+  format — a backup before a replace and an editable template (`buildTaxCSV`'s export only
+  covers in-session additions). Import ⇄ export round-trips losslessly.
+
+Parse/serialise logic lives in `src/shared/domain/taxonomyImport.js` (pure; gated by
+`test/taxonomyImport.test.js`).
+
 ## Deployment
 
 - `DEPLOY.md` — Docker + nginx TLS termination (compose file at the root).

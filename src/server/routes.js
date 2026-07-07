@@ -9,8 +9,9 @@ import { refreshDataset, buildDataset } from './dataset.js';
 import { recompute, dbRowToWireRow, dbRowToDomainRow, loadUserRows, loadUserBomExisting, loadUserUnpromotedTax } from './rowCompute.js';
 import { withSession } from '../shared/domain/session.js';
 import { buildCSV, buildBOMCSV, buildTaxCSV, withBom, exportFileBase, sanitizeFileName } from '../shared/domain/csv.js';
-import { perthISO } from '../shared/domain/time.js';
+import { perthISO, perthDate } from '../shared/domain/time.js';
 import { ASSET_BY_NO } from '../shared/domain/data.js';
+import { parseTaxonomyCSV, taxonomyToCSV } from '../shared/domain/taxonomyImport.js';
 
 const router = express.Router();
 
@@ -407,6 +408,45 @@ router.post('/admin/reseed', requireAdmin, async (req, res) => {
   audit(req.user.upn, 'admin.reseed', {});
   refreshDataset();
   res.json({ ok: true });
+});
+
+// ---------- admin: taxonomy CSV import / export ----------
+// Full replace of the classification tree from a 5-column CSV (the inverse of buildTaxCSV).
+// Only taxonomy_nodes/taxonomy_edges/site_roots are touched — the asset register (assets /
+// taken_nos) is left intact. Strict validation happens in the shared parseTaxonomyCSV.
+router.post('/admin/taxonomy-import', requireAdmin, (req, res) => {
+  const csvText = (req.body && typeof req.body.csv === 'string') ? req.body.csv : '';
+  if (!csvText.trim()) return res.status(400).json({ errors: ['No CSV supplied.'] });
+  const r = parseTaxonomyCSV(csvText);
+  if (!r.ok) return res.status(400).json({ errors: r.errors });
+
+  const { taxonomyNodes, edges, siteRoots } = r.dataset;
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM taxonomy_nodes').run();
+    db.prepare('DELETE FROM taxonomy_edges').run();
+    db.prepare('DELETE FROM site_roots').run();
+    const insertNode = db.prepare('INSERT OR IGNORE INTO taxonomy_nodes (value, type, code, desc, level_desc, src) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const [value, node] of Object.entries(taxonomyNodes)) {
+      insertNode.run(value, node.type || '', node.code || '', node.desc || '', node.levelDesc || '', JSON.stringify(node));
+    }
+    const insertEdge = db.prepare('INSERT OR IGNORE INTO taxonomy_edges (parent, child) VALUES (?, ?)');
+    for (const [parent, children] of Object.entries(edges)) {
+      for (const child of children || []) insertEdge.run(parent, child);
+    }
+    const insertRoot = db.prepare('INSERT OR IGNORE INTO site_roots (value) VALUES (?)');
+    for (const value of siteRoots) insertRoot.run(value);
+  });
+  tx();
+
+  audit(req.user.upn, 'admin.taxonomy-import', r.stats);
+  refreshDataset();
+  res.json({ ok: true, stats: r.stats });
+});
+
+router.get('/admin/taxonomy.csv', requireAdmin, (req, res) => {
+  const body = taxonomyToCSV(buildDataset());
+  audit(req.user.upn, 'export', { type: 'taxonomy-full' });
+  sendCsv(res, perthDate() + ' - Taxonomy', body);
 });
 
 export default router;

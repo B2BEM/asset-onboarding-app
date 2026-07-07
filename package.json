@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node test/generic.test.js && node test/erpProfile.test.js && node test/structure.test.js",
+    "test": "node test/generic.test.js && node test/erpProfile.test.js && node test/structure.test.js && node test/taxonomyImport.test.js",
     "seed": "node scripts/seed-db.js",
     "start": "node src/server/server.js",
     "dev": "node src/server/server.js"

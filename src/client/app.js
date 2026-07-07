@@ -27,7 +27,7 @@ function applyProfileUI(){
   const bom = document.getElementById('btnBomEx'); if(bom) bom.style.display = flat ? 'none' : '';
   const site = document.getElementById('selSite'); if(site && site.closest('.context')) site.closest('.context').style.display = flat ? 'none' : '';
   const io = document.getElementById('chkIssuesOnly'); if(io && io.closest('.ctx-check')) io.closest('.ctx-check').style.display = flat ? 'none' : '';
-  renderRows(); updateExportNameHint();
+  renderRows(); updateExportNameHint(); applyAdminUI();
 }
 
 const $ = s => document.querySelector(s);
@@ -943,8 +943,25 @@ async function updateRegister(){
   }catch(e){ toast('Register update failed — server unreachable'); }
 }
 
+/* ---------- admin: taxonomy CSV import / export (full-replace the classification tree) ---------- */
+async function importTaxonomyFile(file){
+  if(!IS_ADMIN){ toast('Admin sign-in required to import a taxonomy'); return; }
+  let text; try{ text=await file.text(); }catch(e){ toast('Could not read the taxonomy CSV'); return; }
+  if(!confirm('Replace the ENTIRE classification taxonomy with “'+file.name+'”?\n\nThis replaces the taxonomy for all users. The current taxonomy is overwritten (the asset register is unaffected).')) return;
+  try{
+    const res=await fetch('/api/admin/taxonomy-import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csv:text})});
+    const o=await res.json().catch(()=>({}));
+    if(!res.ok){ const errs=(o&&o.errors)||['Import failed (HTTP '+res.status+')']; showBanner('Taxonomy import rejected — '+errs.slice(0,8).map(esc).join(' · ')+(errs.length>8?' · +'+(errs.length-8)+' more':''), true); return; }
+    await refreshBootstrap();
+    hideBanner();
+    toast('Taxonomy replaced ('+(o.stats?o.stats.nodes:'?')+' nodes, '+(o.stats?o.stats.roots:'?')+' roots)');
+  }catch(e){ toast('Taxonomy import failed — server unreachable'); }
+}
+function importTaxonomy(){ if(!IS_ADMIN){ toast('Admin sign-in required to import a taxonomy'); return; } $('#fileTaxonomy').click(); }
+function downloadTaxonomy(){ if(!IS_ADMIN){ toast('Admin sign-in required'); return; } window.location='/api/admin/taxonomy.csv'; }
+
 /* ---------- admin visibility = server-authenticated role (replaces the SHA-256 password gate) ---------- */
-function applyAdminUI(){ const DEAD=new Set(['btnSettings','btnImportData','btnFolder']); /* features replaced by the server — permanently hidden */ document.querySelectorAll('.admin-only').forEach(el=>{ el.style.display = (IS_ADMIN && !DEAD.has(el.id)) ? 'inline-flex' : 'none'; }); const b=$('#btnAdmin'); if(b) b.style.display='none'; }
+function applyAdminUI(){ const DEAD=new Set(['btnSettings','btnImportData','btnFolder']); /* features replaced by the server — permanently hidden */ document.querySelectorAll('.admin-only').forEach(el=>{ const isoOnly=el.classList.contains('iso-only'); const modeOk=!isoOnly || (typeof ACTIVE!=='undefined' && ACTIVE && ACTIVE.mode!=='flat'); el.style.display = (IS_ADMIN && !DEAD.has(el.id) && modeOk) ? 'inline-flex' : 'none'; }); const b=$('#btnAdmin'); if(b) b.style.display='none'; }
 
 /* ===========================================================
    Site context — top-level (level-1) register assets act as sites
@@ -1349,6 +1366,8 @@ function init(){
   $('#draftsBg').addEventListener('mousedown',e=>{ if(e.target===$('#draftsBg')) closeDrafts(); });
   if($('#btnImportData')) $('#btnImportData').style.display='none';   // dataset is served by /api/bootstrap
   if($('#btnRegister')) $('#btnRegister').onclick=updateRegister;
+  if($('#btnTaxImport')) $('#btnTaxImport').onclick=importTaxonomy;
+  if($('#btnTaxExport')) $('#btnTaxExport').onclick=downloadTaxonomy;
   /* ---------- CSV import column-mapping ---------- */
   $('#erpMapX').onclick=$('#erpMapCancel').onclick=closeMapModal;
   { const a=$('#erpMapAdopt'); if(a) a.onclick=adoptCsvFormat; }
@@ -1403,6 +1422,7 @@ function init(){
   if($('#btnFolder')) $('#btnFolder').style.display='none';   // folder sync replaced by server persistence
   $('#fileDraft').onchange=e=>{ if(e.target.files[0])loadDraftFile(e.target.files[0]); e.target.value=''; };
   $('#fileCsv').onchange=e=>{ if(e.target.files[0])readCsvFile(e.target.files[0]); e.target.value=''; };
+  if($('#fileTaxonomy')) $('#fileTaxonomy').onchange=e=>{ if(e.target.files[0]) importTaxonomyFile(e.target.files[0]); e.target.value=''; };
   document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#modalBg').classList.contains('open'))closeModal(); if($('#draftsBg').classList.contains('open'))closeDrafts(); if($('#bomExBg').classList.contains('open'))closeBomEx(); if($('#erpSetupBg').classList.contains('open'))closeErpSetup(); if($('#erpMapBg').classList.contains('open'))closeMapModal(); if($('#flatAddBg').classList.contains('open'))closeFlatAdd(); }});
 
   try{ window.RULES=RULES; window.__test={transformedChildren,isGroupNode,childrenOfRules,parseCSV:ERP.parseCSV,importCSV,proposedAssetNo,proposedAssetDesc,newSegments,classify:RULES.classify,buildAbbreviation:RULES.buildAbbreviation,resolveNumber:RULES.resolveNumber,validate:RULES.validate,needsNumber:RULES.needsNumber,getRows:()=>rows,buildCSV,assetOptions,deptOptions,locOptions,leafEnumerable,noTaken,nextSequence,level3FromParent,parentTx,autoAssetNo,newLeafLevel,inheritedLen,rootByCode,renderCascade,containerNos:()=>CONTAINER_NOS,assetNos:()=>ASSET_NOS,openModal,closeModal,recompute,validateStructural,structuralLevelIssue,modalDupIssues,autofillFromProposed,getEditing:()=>editing,setEditing:(o)=>{editing=o;syncSession();},isItemRow,infoMissing,requiredFieldsFor,bomScore,stockRec,buildBOMCSV,addBomLine,renderAssetInfo,renderBOM,INFO_REQUIRED,ITEM_TYPE_LABEL,registerTaxValue,reapplyOverrides,buildTaxCSV,suggestCode,getNewTax:()=>NEW_TAX,makeTaxEdit,unregisterTaxValue,childrenOf,nodeOf,computeForRow,dataIssuesFor,saveRow,renderRows,wireDateField,dateFieldHTML,getProject:()=>PROJECT,setProject:(o)=>{PROJECT=Object.assign(PROJECT,o);fillProjectInputs();updateExportNameHint();},exportFileBase,sanitizeFileName,isAdmin:()=>IS_ADMIN,getUser:()=>CURRENT_USER,draftFileName,loadDraftObj,openDrafts,saveDraft,updateRegister,refreshBootstrap,openBomEx,closeBomEx,onBomExPick,setBomMode,renderBomEx,bomExAddPart,saveBomEx,bomKeyMatch,bomStockIssues,bomExAssetOptions,findBomEx,getBomExisting:()=>BOM_EXISTING,setBomExisting:(a)=>{BOM_EXISTING=a||[];syncSession();},getBomex:()=>BOMEX,setBomex:(o)=>{BOMEX=o;},syncSession}; }catch(e){}
