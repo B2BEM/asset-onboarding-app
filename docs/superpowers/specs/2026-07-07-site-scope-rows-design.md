@@ -68,6 +68,20 @@ and draft persistence are untouched — this is display order/visibility only.
   true; chain spanning register assets (session class under register site) →
   true for that site, false for another.
 
+## Follow-up (same day): pickers must use the same site scope
+
+With SITE = North selected, the Add-asset parent picker still offered the South
+class `B2BE-STH-B&I` ("added this session"). Cause: `assetOptions()` site-limits
+only *register* assets, by number-prefix (`no === site || no.startsWith(site+'-')`),
+while the session-row branch appends qualifying rows with no site check at all.
+`bomExAssetOptions()` uses the same prefix heuristic.
+
+Fix: both pickers scope through `inSiteScope` with a `parentOf` spanning session
+rows and register assets — the same definition of "belongs to the site" the
+table uses. This also correctly scopes entries whose numbering doesn't carry
+the site prefix (e.g. imported registers). `/api/assets/search` already returns
+`parent`, so BOM-to-existing entries chain-climb even before bootstrap knows them.
+
 ## Verification
 
 `npm test` (all 5 gates) → commit spec + impl separately → ff `main` in
