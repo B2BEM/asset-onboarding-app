@@ -7,3 +7,4 @@ data/certs/
 .env
 .a5c/
 .superpowers/
+launch-app.cmd
