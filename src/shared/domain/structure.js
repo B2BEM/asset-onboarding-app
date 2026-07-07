@@ -47,13 +47,18 @@ function chainOf(no, parentOf){
 // when the site is on its self+ancestor chain (the site row itself and everything under it), or
 // the entry is on the SITE's ancestor chain (the company above it). Entries under a different
 // site — and entries with neither no nor parent resolvable — are out of scope. parentOf must
-// span session rows AND register assets so chains cross the register/session seam.
+// span session rows AND register assets so chains cross the register/session seam. The entry's
+// OWN parent is authoritative for the first hop, so a row is scoped by its real parent even when
+// another row shares its asset no (parentOf is a first-wins no->parent map; edge fix 2026-07-07).
 function inSiteScope(entry, siteNo, parentOf){
   if(!siteNo) return true;
   const e = entry || {};
-  const start = e.no || e.parent || '';
-  if(!start) return false;
-  if(chainOf(start, parentOf).has(siteNo)) return true;
-  return !!e.no && chainOf(siteNo, parentOf).has(e.no);
+  if(e.no && e.no === siteNo) return true;                 // the site row itself
+  const chain = new Set();                                 // entry's self + ancestor chain
+  if(e.no) chain.add(e.no);
+  let v = e.parent || '';                                  // first hop = entry's OWN declared parent
+  while(v && !chain.has(v)){ chain.add(v); v = parentOf(v) || ''; }   // then climb via parentOf; cycle-safe
+  if(chain.has(siteNo)) return true;                       // site sits on the entry's chain (site + its subtree)
+  return !!e.no && chainOf(siteNo, parentOf).has(e.no);    // entry is an ancestor of the site (the company above)
 }
 export { STRUCTURE_ROLES, roleOfLevel, structureComplete, hierarchyOrder, inSiteScope };

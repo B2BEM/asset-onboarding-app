@@ -620,8 +620,11 @@ function renderRows(){
   if(ISO_THEAD == null) ISO_THEAD = thead.innerHTML;
   if(ACTIVE.mode === 'flat'){ const wz=$('#structWizard'); if(wz) wz.style.display='none'; refreshAddBtn(); return renderFlatRows(); }
   if(thead.innerHTML !== ISO_THEAD) thead.innerHTML = ISO_THEAD;
-  renderIsoRows();
+  // reconcile the site dropdown (buildSites, inside updateWizard) BEFORE scoping the table:
+  // if the selected site was just deleted, #selSite resets to "All sites" first so renderIsoRows
+  // scopes to the reconciled value instead of the vanished one (edge fix 2026-07-07).
   updateWizard();
+  renderIsoRows();
 }
 function renderIsoRows(){
   syncSession();

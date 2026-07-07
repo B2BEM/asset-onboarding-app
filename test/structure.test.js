@@ -127,6 +127,21 @@ withSession({ rows:[sessCls], PROJECT, BOM_EXISTING:[], NEW_TAX:[] }, () => {
   check('scope: same class hidden for the other register site',
     inSiteScope({no:'RS-FL-HV', parent:'RS-FL'}, 'RS-P2', parentOf) === false);
 }
+{
+  // duplicate asset no under DIFFERENT sites (edge fix 2026-07-07): callers build parentOf as a
+  // first-wins no->parent map, so parentOf('DUP') resolves to the FIRST row's parent. Each row must
+  // still be scoped by its OWN declared parent — a shared no cannot drag it under the wrong site.
+  const rows=[{no:'CO1',parent:''},{no:'CO1-S1',parent:'CO1'},{no:'CO1-S1-B&I',parent:'CO1-S1'},
+    {no:'CO1-S2',parent:'CO1'},{no:'CO1-S2-B&I',parent:'CO1-S2'},
+    {no:'DUP',parent:'CO1-S1-B&I'},{no:'DUP',parent:'CO1-S2-B&I'}];
+  const sp=new Map(); rows.forEach(r=>{ if(r.no && !sp.has(r.no)) sp.set(r.no, r.parent); });
+  const parentOf = n => sp.has(n) ? sp.get(n) : '';
+  const dupA={no:'DUP',parent:'CO1-S1-B&I'}, dupB={no:'DUP',parent:'CO1-S2-B&I'};
+  check('scope: dup-no row A visible under its own site (S1)', inSiteScope(dupA,'CO1-S1',parentOf) === true);
+  check('scope: dup-no row B visible under its own site (S2)', inSiteScope(dupB,'CO1-S2',parentOf) === true);
+  check('scope: dup-no row B hidden from the other site (S1)', inSiteScope(dupB,'CO1-S1',parentOf) === false);
+  check('scope: dup-no row A hidden from the other site (S2)', inSiteScope(dupA,'CO1-S2',parentOf) === false);
+}
 
 if(failures){ console.error('STRUCTURE GATE: FAIL —', failures, 'check(s)'); process.exit(1); }
 console.log('STRUCTURE GATE: PASS');
