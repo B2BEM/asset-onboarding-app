@@ -12,6 +12,7 @@ import { buildCSV, buildBOMCSV, buildTaxCSV, withBom, exportFileBase, sanitizeFi
 import { perthISO, perthDate } from '../shared/domain/time.js';
 import { ASSET_BY_NO } from '../shared/domain/data.js';
 import { parseTaxonomyCSV, taxonomyToCSV } from '../shared/domain/taxonomyImport.js';
+import { parseRegisterCSV } from '../shared/domain/registerImport.js';
 
 const router = express.Router();
 
@@ -338,27 +339,33 @@ router.get('/export/taxonomy.csv', (req, res) => {
 });
 
 // ---------- admin ----------
-router.post('/admin/register-update', requireAdmin, (req, res) => {
-  const userRows = loadUserRows(req.user.upn).filter(r => r.action === 'add');
-  let added = 0, skipped = 0;
+// Import an onboarding-export CSV (buildCSV) into the internal register. Merge + dedup:
+// each ADD row with an asset no is inserted into `assets` unless that no already exists.
+// lvl is derived from the parent asset's lvl+1; the taxonomy tables are left untouched.
+router.post('/admin/register-import', requireAdmin, (req, res) => {
+  const csvText = (req.body && typeof req.body.csv === 'string') ? req.body.csv : '';
+  if (!csvText.trim()) return res.status(400).json({ errors: ['No CSV supplied.'] });
+  const r = parseRegisterCSV(csvText);
+  if (!r.ok) return res.status(400).json({ errors: r.errors });
 
+  let added = 0, skipped = 0;
   const tx = db.transaction(() => {
-    for (const r of userRows) {
-      const no = r.asset_no;
+    for (const rec of r.records) {
+      const no = rec.no;
       if (!no) { skipped++; continue; }
       const exists = db.prepare('SELECT 1 FROM assets WHERE no = ?').get(no);
       if (exists) { skipped++; continue; }
-      const parentAsset = r.parent ? db.prepare('SELECT lvl FROM assets WHERE no = ?').get(r.parent) : null;
+      const parentAsset = rec.parent ? db.prepare('SELECT lvl FROM assets WHERE no = ?').get(rec.parent) : null;
       const lvl = parentAsset && typeof parentAsset.lvl === 'number' ? parentAsset.lvl + 1 : null;
       db.prepare('INSERT INTO assets (no, desc, parent, org, lvl, tx_json) VALUES (?, ?, ?, ?, ?, ?)').run(
-        no, r.asset_name || '', r.parent || '', '', lvl, r.levels_json || null
+        no, rec.name || '', rec.parent || '', '', lvl, (rec.levels && rec.levels.length) ? JSON.stringify(rec.levels) : null
       );
       added++;
     }
   });
   tx();
 
-  audit(req.user.upn, 'admin.register-update', { added, skipped });
+  audit(req.user.upn, 'admin.register-import', { added, skipped });
   refreshDataset();
   res.json({ added, skipped });
 });

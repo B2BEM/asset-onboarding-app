@@ -942,7 +942,7 @@ function adoptCsvFormat(){
   toast('Format adopted: '+baseName);
 }
 
-/* ---------- admin: server-side register update + dataset refresh (replaces folder sync) ---------- */
+/* ---------- admin: register CSV import (file picker) + dataset refresh ---------- */
 async function refreshBootstrap(){
   const b = await (await fetch('/api/bootstrap')).json();
   initData(b.dataset);
@@ -951,17 +951,23 @@ async function refreshBootstrap(){
   if(cmbParent){cmbParent.setOptions(()=>assetOptions());}
   buildSites(); refreshAddBtn(); renderRows();
 }
-async function updateRegister(){
+// Update register = pick an onboarding-export CSV, then merge its new assets into the
+// register (mirrors importTaxonomy → #fileTaxonomy). The picker is wired to importRegisterFile.
+function updateRegister(){ if(!IS_ADMIN){ toast('Admin sign-in required to update the register'); return; } $('#fileRegister').click(); }
+async function importRegisterFile(file){
   if(!IS_ADMIN){ toast('Admin sign-in required to update the register'); return; }
+  let text; try{ text=await file.text(); }catch(e){ toast('Could not read the register CSV'); return; }
+  if(!confirm('Import assets from “'+file.name+'” into the register?\n\nNew asset numbers are added; ones already in the register are skipped. (The taxonomy is unaffected.)')) return;
   try{
-    const res=await fetch('/api/admin/register-update',{method:'POST'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const o=await res.json();
+    const res=await fetch('/api/admin/register-import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csv:text})});
+    const o=await res.json().catch(()=>({}));
+    if(!res.ok){ const errs=(o&&o.errors)||['Import failed (HTTP '+res.status+')']; showBanner('Register import rejected — '+errs.slice(0,8).map(esc).join(' · ')+(errs.length>8?' · +'+(errs.length-8)+' more':''), true); return; }
     await refreshBootstrap();
+    hideBanner();
     updateDsInfo('register +'+o.added+' · '+perthDateTime());
     if(o.added) toast('Register updated (+'+o.added+' asset'+(o.added>1?'s':'')+(o.skipped?', '+o.skipped+' skipped':'')+')');
     else toast('No new assets to add'+(o.skipped?' — '+o.skipped+' already in the register':''));
-  }catch(e){ toast('Register update failed — server unreachable'); }
+  }catch(e){ toast('Register import failed — server unreachable'); }
 }
 
 /* ---------- admin: taxonomy CSV import / export (full-replace the classification tree) ---------- */
@@ -990,9 +996,9 @@ function applyAdminUI(){ const DEAD=new Set(['btnSettings','btnImportData','btnF
 function buildSites(){
   const sel=$('#selSite'); const cur=sel.value;
   syncSession();
-  // sites = level-2 entries (register OR session) that contain at least one child (register or session)
-  const hasChild = no => CONTAINER_NOS.has(no) || rows.some(r=>r.action==='add' && r.parent===no);
-  const tops=wizardEntriesAtLevel(2).filter(s=>hasChild(s.no));
+  // sites = every level-2 entry (register OR session). A level-2 row under a company IS a
+  // site by definition — childless sites (no asset class yet) must still appear here.
+  const tops=wizardEntriesAtLevel(2);
   sel.innerHTML='<option value="">All sites</option>'+tops.map(s=>`<option value="${esc(s.no)}">${esc(s.desc||s.no)}</option>`).join('');
   if(cur && tops.some(t=>t.no===cur)) sel.value=cur;
 }
@@ -1431,6 +1437,7 @@ function init(){
   $('#fileDraft').onchange=e=>{ if(e.target.files[0])loadDraftFile(e.target.files[0]); e.target.value=''; };
   $('#fileCsv').onchange=e=>{ if(e.target.files[0])readCsvFile(e.target.files[0]); e.target.value=''; };
   if($('#fileTaxonomy')) $('#fileTaxonomy').onchange=e=>{ if(e.target.files[0]) importTaxonomyFile(e.target.files[0]); e.target.value=''; };
+  if($('#fileRegister')) $('#fileRegister').onchange=e=>{ if(e.target.files[0]) importRegisterFile(e.target.files[0]); e.target.value=''; };
   document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#modalBg').classList.contains('open'))closeModal(); if($('#draftsBg').classList.contains('open'))closeDrafts(); if($('#bomExBg').classList.contains('open'))closeBomEx(); if($('#erpSetupBg').classList.contains('open'))closeErpSetup(); if($('#erpMapBg').classList.contains('open'))closeMapModal(); if($('#flatAddBg').classList.contains('open'))closeFlatAdd(); }});
 
   try{ window.RULES=RULES; window.__test={transformedChildren,isGroupNode,childrenOfRules,parseCSV:ERP.parseCSV,importCSV,proposedAssetNo,proposedAssetDesc,newSegments,classify:RULES.classify,buildAbbreviation:RULES.buildAbbreviation,resolveNumber:RULES.resolveNumber,validate:RULES.validate,needsNumber:RULES.needsNumber,getRows:()=>rows,buildCSV,assetOptions,deptOptions,locOptions,leafEnumerable,noTaken,nextSequence,level3FromParent,parentTx,autoAssetNo,newLeafLevel,inheritedLen,rootByCode,renderCascade,containerNos:()=>CONTAINER_NOS,assetNos:()=>ASSET_NOS,openModal,closeModal,recompute,validateStructural,structuralLevelIssue,modalDupIssues,autofillFromProposed,getEditing:()=>editing,setEditing:(o)=>{editing=o;syncSession();},isItemRow,infoMissing,requiredFieldsFor,bomScore,stockRec,buildBOMCSV,addBomLine,renderAssetInfo,renderBOM,INFO_REQUIRED,ITEM_TYPE_LABEL,registerTaxValue,reapplyOverrides,buildTaxCSV,suggestCode,getNewTax:()=>NEW_TAX,makeTaxEdit,unregisterTaxValue,childrenOf,nodeOf,computeForRow,dataIssuesFor,saveRow,renderRows,wireDateField,dateFieldHTML,getProject:()=>PROJECT,setProject:(o)=>{PROJECT=Object.assign(PROJECT,o);fillProjectInputs();updateExportNameHint();},exportFileBase,sanitizeFileName,isAdmin:()=>IS_ADMIN,getUser:()=>CURRENT_USER,draftFileName,loadDraftObj,openDrafts,saveDraft,updateRegister,refreshBootstrap,openBomEx,closeBomEx,onBomExPick,setBomMode,renderBomEx,bomExAddPart,saveBomEx,bomKeyMatch,bomStockIssues,bomExAssetOptions,findBomEx,getBomExisting:()=>BOM_EXISTING,setBomExisting:(a)=>{BOM_EXISTING=a||[];syncSession();},getBomex:()=>BOMEX,setBomex:(o)=>{BOMEX=o;},syncSession}; }catch(e){}
