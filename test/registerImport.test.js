@@ -1,5 +1,6 @@
 // Register import unit gate. Run: node test/registerImport.test.js (exit 0 = pass)
 import * as RI from '../src/shared/domain/registerImport.js';
+import { csvCell, csvGuard, csvUnguard } from '../src/shared/domain/csv.js';
 
 let failures = 0;
 function check(name, cond, detail){ if(cond) console.log('PASS', name); else { failures++; console.error('FAIL', name, detail == null ? '' : JSON.stringify(detail)); } }
@@ -55,6 +56,20 @@ check('error: empty CSV', /empty/i.test(errs('') || ''), errs(''));
 {
   const r = RI.parseRegisterCSV(HDR);
   check('header-only: ok with 0 records', r.ok === true && r.records.length === 0, r.ok && r.stats);
+}
+
+// --- CSV / formula injection guard (security): export neutralises formula-leading cells,
+//     import strips the guard so a round-trip is lossless.
+{
+  check('guard: = neutralised', csvGuard('=1+1') === "'=1+1" && csvCell('=cmd|calc') === "'=cmd|calc", [csvGuard('=1+1'), csvCell('=cmd|calc')]);
+  check('guard: + - @ neutralised', csvGuard('+x')==="'+x" && csvGuard('-x')==="'-x" && csvGuard('@x')==="'@x", [csvGuard('+x'),csvGuard('-x'),csvGuard('@x')]);
+  check('guard: safe value untouched', csvGuard('B2BE-STH')==='B2BE-STH' && csvCell('Building & Infrastructure')==='Building & Infrastructure', csvGuard('B2BE-STH'));
+  check('guard: unguard is the inverse', csvUnguard(csvGuard('=DDE()'))==='=DDE()' && csvUnguard('B2BE')==='B2BE', csvUnguard(csvGuard('=DDE()')));
+  // end-to-end: a guarded onboarding CSV re-imports to the original malicious-looking name
+  const csv = [HDR, "P,TRUE,,,ATK1,'=cmd|'/c calc"].join('\r\n');
+  const r = RI.parseRegisterCSV(csv);
+  check('guard: register import strips the guard back to the original value',
+    r.ok && r.records[0].name === "=cmd|'/c calc", r.ok && r.records[0].name);
 }
 
 if(failures){ console.error('REGISTER IMPORT GATE: FAIL —', failures); process.exit(1); }

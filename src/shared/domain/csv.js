@@ -11,7 +11,14 @@ const CSV_HEADERS = ["SELECT PARENT ASSET","ADD ROW?","UPDATE ASSET?","RETIRE AS
   "CLASSIFICATION","ABBREVIATION","NUMBER","WORK-ORDERABLE","ASSET NO (AUTO)","ASSET NAME (AUTO)","ITEM TYPE"]
   .concat(INFO_FIELDS.map(f=>f[1]))   // + ASSET DETAILS columns (LOCATION … WARRANTY SPECIAL CONDITIONS)
   .concat(["PROJECT MANAGER","PROJECT NUMBER","PROJECT START DATE","PROJECT EXPECTED COMPLETION DATE"]);
-function csvCell(v){ v=(v==null?'':String(v)); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+// CSV / formula injection guard: a spreadsheet treats a cell beginning with = + - @ (or a
+// leading tab/CR) as a formula, so user-entered asset text like =HYPERLINK(...) would execute
+// when the exported register is opened in Excel. Prefix a single quote to neutralise it; the
+// app's importers strip this guard back off (csvUnguard) so round-trips stay lossless.
+const CSV_RISK = /^[=+\-@\t\r]/;
+function csvGuard(v){ v=(v==null?'':String(v)); return CSV_RISK.test(v) ? "'"+v : v; }
+function csvUnguard(v){ v=(v==null?'':String(v)); return (v[0]==="'" && CSV_RISK.test(v.slice(1))) ? v.slice(1) : v; }
+function csvCell(v){ v=csvGuard(v==null?'':String(v)); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function buildCSV(){
   const lines=[CSV_HEADERS.map(csvCell).join(',')];
   for(const r of rows){
@@ -57,4 +64,4 @@ function exportFileBase(stamp){ stamp=stamp||perthDate(); const pn=sanitizeFileN
 function draftFileName(proj){ proj=proj||PROJECT; const stamp=perthDate(); const pn=sanitizeFileName(((proj&&proj.number)||'').trim()); return (pn?pn+' - ':'')+stamp+' - Asset onboarding draft.json'; }
 export const CSV_BOM = '﻿';
 export function withBom(text){ return CSV_BOM + text; }
-export { CSV_HEADERS, csvCell, buildCSV, BOM_CSV_HEADERS, buildBOMCSV, buildTaxCSV, sanitizeFileName, exportFileBase, draftFileName };
+export { CSV_HEADERS, csvCell, csvGuard, csvUnguard, buildCSV, BOM_CSV_HEADERS, buildBOMCSV, buildTaxCSV, sanitizeFileName, exportFileBase, draftFileName };

@@ -34,7 +34,11 @@ function parseCSVGrid(text) {
 }
 
 function normHeader(h) { return String(h == null ? '' : h).trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
-function cell(r, j) { return (j == null || j < 0) ? '' : String(r[j] == null ? '' : r[j]).trim(); }
+// Strip the CSV formula-injection guard (leading ' before = + - @ / tab / CR) that csv.js adds
+// on export, so importing the app's own onboarding CSV recovers the original value losslessly.
+const CSV_RISK = /^[=+\-@\t\r]/;
+function csvUnguard(v) { v = String(v == null ? '' : v); return (v[0] === "'" && CSV_RISK.test(v.slice(1))) ? v.slice(1) : v; }
+function cell(r, j) { return (j == null || j < 0) ? '' : csvUnguard(String(r[j] == null ? '' : r[j]).trim()); }
 function isTrue(v) { return String(v == null ? '' : v).trim().toLowerCase() === 'true'; }
 
 // Parse an onboarding-export CSV into register records. Returns

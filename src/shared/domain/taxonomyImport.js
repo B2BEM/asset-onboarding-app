@@ -32,7 +32,12 @@ function parseCSVGrid(text) {
   return rows;
 }
 
-function csvCell(v) { v = (v == null ? '' : String(v)); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+// CSV / formula injection guard (mirrors csv.js): neutralise cells a spreadsheet would treat
+// as a formula on export; parse strips the guard so import round-trips are lossless.
+const CSV_RISK = /^[=+\-@\t\r]/;
+function csvGuard(v) { v = (v == null ? '' : String(v)); return CSV_RISK.test(v) ? "'" + v : v; }
+function csvUnguard(v) { v = (v == null ? '' : String(v)); return (v[0] === "'" && CSV_RISK.test(v.slice(1))) ? v.slice(1) : v; }
+function csvCell(v) { v = csvGuard(v == null ? '' : String(v)); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function normHeader(h) { return String(h == null ? '' : h).trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 function cap(v, n) { v = String(v == null ? '' : v); return v.length > n ? v.slice(0, n) : v; }
 
@@ -74,17 +79,17 @@ export function parseTaxonomyCSV(text) {
   const seen = new Set(), dup = new Set();
   dataRows.forEach((r, n) => {
     const line = n + 2;                                  // 1-based, including the header row
-    const value = (r[idx.value] || '').trim();
+    const value = csvUnguard((r[idx.value] || '').trim());
     if (!value) { errors.push('Row ' + line + ': TAXONOMY VALUE is required.'); return; }
     if (seen.has(value)) { if (!dup.has(value)) { dup.add(value); errors.push('Duplicate TAXONOMY VALUE: "' + value + '".'); } return; }
     seen.add(value);
     nodes[value] = {
       value: cap(value, 300),
-      type: cap((r[idx.type] || '').trim(), 50),
-      code: cap((r[idx.code] || '').trim(), 50),
-      desc: cap((r[idx.desc] || '').trim(), 2000),
+      type: cap(csvUnguard((r[idx.type] || '').trim()), 50),
+      code: cap(csvUnguard((r[idx.code] || '').trim()), 50),
+      desc: cap(csvUnguard((r[idx.desc] || '').trim()), 2000),
     };
-    parentOf[value] = (r[idx.parent] || '').trim();
+    parentOf[value] = csvUnguard((r[idx.parent] || '').trim());
   });
 
   // edges + roots + referential integrity. Object key order = row order, so children and
