@@ -54,5 +54,33 @@ check('error: orphan parent', /is not a defined/.test(errs(HDR + '\nchild,EQUIPM
 check('error: cycle', /Cycle/.test(errs(HDR + '\nA,REF,A,a,B\nB,REF,B,b,C\nC,REF,C,c,A') || ''), errs(HDR + '\nA,REF,A,a,B\nB,REF,B,b,C\nC,REF,C,c,A'));
 check('error: no root (header only)', /No root/.test(errs(HDR) || ''), errs(HDR));
 
+// --- prototype-member keys must be treated as ordinary strings, not inherited Object members.
+// Regression: nodes/edges were plain {}, so a PARENT of toString/constructor/__proto__ read back
+// the inherited member — bypassing the "parent not defined" guard and crashing edges[parent].push
+// (TypeError -> HTTP 500 from POST /api/admin/taxonomy-import instead of a clean 400).
+for (const name of ['toString', 'constructor', '__proto__', 'valueOf', 'hasOwnProperty']) {
+  let threw = null, r = null;
+  try { r = TI.parseTaxonomyCSV(HDR + '\nChild,,,,' + name); } catch (e) { threw = e; }
+  check('proto: parent "' + name + '" does not throw', threw === null, threw && threw.message);
+  check('proto: parent "' + name + '" is a clean validation error',
+    !!r && r.ok === false && /is not a defined/.test(r.errors.join(' | ')), r && r.errors);
+}
+// A node whose VALUE is a prototype-member name is a legitimate node and must round-trip.
+{
+  const r = TI.parseTaxonomyCSV(HDR + '\ntoString,REF,TS,root,\nChild,EQUIPMENT,C,c,toString');
+  check('proto: node named toString parses', r.ok === true, r.errors);
+  check('proto: node named toString gets its edge', r.ok && JSON.stringify(r.dataset.edges['toString']) === JSON.stringify(['Child']), r.ok && r.dataset.edges);
+  const csv = r.ok && TI.taxonomyToCSV(r.dataset);          // export side (parentOf) must not choke either
+  check('proto: node named toString re-exports', typeof csv === 'string' && /(^|\n)Child,/.test(csv), csv);
+}
+// A node whose VALUE is __proto__ must be stored as a real key, not pollute Object.prototype.
+{
+  const before = Object.prototype.toString;
+  const r = TI.parseTaxonomyCSV(HDR + '\n__proto__,REF,P,root,');
+  check('proto: node named __proto__ parses', r.ok === true, r.errors);
+  check('proto: node named __proto__ is an own key', r.ok && Object.keys(r.dataset.taxonomyNodes).includes('__proto__'), r.ok && Object.keys(r.dataset.taxonomyNodes));
+  check('proto: Object.prototype not polluted', Object.prototype.toString === before && !('polluted' in {}), null);
+}
+
 if(failures){ console.error('TAXONOMY GATE: FAIL —', failures); process.exit(1); }
 console.log('TAXONOMY GATE: PASS');

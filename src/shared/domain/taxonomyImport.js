@@ -44,7 +44,9 @@ function cap(v, n) { v = String(v == null ? '' : v); return v.length > n ? v.sli
 // A parent-pointer forest cycles only in simple loops (each node has one parent). Climb the
 // parent chain from each node; hitting a node already on the current climb path is a cycle.
 function detectCycle(nodes, parentOf) {
-  const color = {}; // 1 = on current path, 2 = proven acyclic
+  // null-proto: keys are untrusted TAXONOMY VALUEs, so an inherited member name
+  // (toString, constructor, __proto__, …) must NOT resolve to a truthy prototype value.
+  const color = Object.create(null); // 1 = on current path, 2 = proven acyclic
   for (const start of Object.keys(nodes)) {
     if (color[start]) continue;
     const path = [];
@@ -75,7 +77,10 @@ export function parseTaxonomyCSV(text) {
   const dataRows = grid.slice(1);
   if (dataRows.length > MAX_ROWS) return { ok: false, errors: ['Too many rows (' + dataRows.length + '); limit is ' + MAX_ROWS + '.'] };
 
-  const nodes = {}, edges = {}, roots = [], parentOf = {};
+  // null-proto maps: TAXONOMY VALUE / PARENT are untrusted, so a cell like "toString",
+  // "constructor" or "__proto__" must not shadow real entries via Object.prototype — that
+  // previously bypassed the "parent is not defined" guard and crashed on edges[parent].push.
+  const nodes = Object.create(null), edges = Object.create(null), roots = [], parentOf = Object.create(null);
   const seen = new Set(), dup = new Set();
   dataRows.forEach((r, n) => {
     const line = n + 2;                                  // 1-based, including the header row
@@ -114,7 +119,7 @@ export function taxonomyToCSV(dataset) {
   const nodes = (dataset && dataset.taxonomyNodes) || {};
   const edges = (dataset && dataset.edges) || {};
   const roots = (dataset && dataset.siteRoots) || [];
-  const parentOf = {};
+  const parentOf = Object.create(null); // null-proto: child values are untrusted (see parseTaxonomyCSV)
   for (const p in edges) for (const c of (edges[p] || [])) parentOf[c] = p;
   const H = ['TAXONOMY VALUE', 'TAXONOMY TYPE', 'CODE', 'DESCRIPTION', 'PARENT TAXONOMY VALUE'];
   const lines = [H.map(csvCell).join(',')];
