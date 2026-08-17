@@ -123,8 +123,8 @@ Role/Name/Position/Signature/Date header row uses Navy-mid column headers.
 
 | Role | Name | Position | Signature | Date |
 |---|---|---|---|---|
-| Author | K. Duffy | Director, Governance & Engagement | | |
-| Reviewer | *(by document type — see below)* | | | |
+| Author | K. Duffy | Director, Compliance & Engagement | *(signature auto-applied)* | *(issue date)* |
+| Reviewer | *(by document type — see below)* | | *(auto-applied for S. Claydon only)* | *(issue date, if signed)* |
 
 Column widths: 1927 + 1927 + 1927 + 1927 + 1930 = 9638 DXA.
 
@@ -137,6 +137,13 @@ Column widths: 1927 + 1927 + 1927 + 1927 + 1930 = 9638 DXA.
 
 Author defaults to **K. Duffy** for controlled documents; change it only when
 someone else genuinely authored the document. There is **no Approver row**.
+
+**Signatures.** K. Duffy's signature is auto-applied to the Author row, and
+S. Claydon's to the Reviewer row when he is the reviewer (both stamped with the
+issue date). S. Ziegelaar has no signature graphic, so a brand/marketing document
+leaves the Reviewer signature and date blank for her to sign by hand. Because the
+Reviewer row now auto-signs, the build no longer proves review took place — only
+issue a document S. Claydon has actually reviewed.
 
 ---
 
@@ -367,12 +374,12 @@ the issuing entity's full name and ACN:
 
 **Enterprise Specialists:**
 ```
-UNCONTROLLED DOCUMENT WHEN PRINTED  |  B2BEM-XX-PRO-NNN Rev X.X  |  © B2BEM Enterprise Specialists ACN 698 971 550  |  www.b2bem.au  |  0448 883 312  |  Page X of Y
+UNCONTROLLED DOCUMENT WHEN PRINTED  |  B2BEM-XX-PRO-NNN Rev X.X  |  © B2BEM Enterprise Specialists ACN 698 971 550  |  www.b2bem.au  |  0458 992 704  |  Page X of Y
 ```
 
 **Enterprise Management:**
 ```
-UNCONTROLLED DOCUMENT WHEN PRINTED  |  B2BEM-XX-PRO-NNN Rev X.X  |  © B2BEM Enterprise Management ACN 698 934 477  |  www.b2bem.au  |  0448 883 312  |  Page X of Y
+UNCONTROLLED DOCUMENT WHEN PRINTED  |  B2BEM-XX-PRO-NNN Rev X.X  |  © B2BEM Enterprise Management ACN 698 934 477  |  www.b2bem.au  |  0458 992 704  |  Page X of Y
 ```
 
 Forms/registers add a preparer/approver line above this:

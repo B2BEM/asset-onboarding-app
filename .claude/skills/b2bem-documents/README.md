@@ -6,7 +6,7 @@ claude.ai skill library.
 
 ## Source of truth
 
-Rebuilt from the SharePoint master-of-record:
+Synced from the SharePoint master-of-record:
 
 ```
 B2BEM - Internal
@@ -14,45 +14,76 @@ B2BEM - Internal
 ```
 
 Do **not** take copies from `_superseded/` — those are retired. Do not take
-copies from the personal claude.ai workspace — that copy is drifted (see below).
+copies from the personal claude.ai workspace — that copy is drifted.
+
+**SharePoint is upstream of this repo, not the reverse.** When the two differ,
+pull master → repo. Never push repo → master; the master is edited directly by
+its owners and carries changes this repo will not have seen.
 
 ## Contents
 
-| File | Status |
-|---|---|
-| `SKILL.md` | Present. Encoding repaired — see below. |
-| `references/naming.md` | Present, from the master. |
-| `references/structure.md` | Present, from the master. |
-| `references/build.md` | Present, from the master. |
-| `assets/b2bem_logo.png` | **Missing** — see below. |
+Synced against the master as at **2026-08-14** (`SKILL.md` metadata
+`last_updated: 2026-08-05`). Byte counts below are the master's, which uses CRLF
+line endings for all files except `naming.md`; this repo stores LF, so local
+`wc -c` reads lower by one byte per line.
 
-## The logo is not in this repo
+| File | Master bytes | Status |
+|---|---|---|
+| `SKILL.md` | 29,777 | In sync |
+| `references/naming.md` | 10,781 | In sync (LF upstream) |
+| `references/structure.md` | 19,658 | In sync |
+| `references/build.md` | 35,846 | In sync |
+| `assets/b2bem_logo.png` | 208,733 | **Missing** — see below |
+| `assets/kduffy_signature.png` | 14,041 | **Missing** — see below |
+| `assets/sclaydon_signature.png` | 2,620 | **Missing** — see below |
 
-`assets/b2bem_logo.png` (208 KB, the wide horizontal lockup, source
-`Website_topper Logo.png`) could not be transferred from SharePoint — the Graph
-`/content` endpoint rejects binary reads through the connector.
+## The binary assets are not in this repo
 
-Copy it manually from the master folder above into `assets/` before packaging
-this skill for upload. Without it the running header falls back to a bold Navy
-"B2BEM" wordmark, which the builder handles cleanly but is not the house style.
+None of the three PNGs in `assets/` could be transferred from SharePoint — the
+Graph `/content` endpoint rejects binary reads through the connector (HTTP 400).
 
-## Encoding fault (fixed here, still present upstream)
+Copy them manually from the master folder above into `assets/` before packaging
+this skill for upload:
 
-The master `SKILL.md` contains **77 double-encoded UTF-8 sequences** — em
-dashes, en dashes, middots and arrows stored as mojibake, the result of UTF-8
-bytes being decoded as cp1252 and re-saved. They are repaired in this copy.
+- `b2bem_logo.png` — the wide horizontal lockup (source `Website_topper Logo.png`).
+  Without it the running header falls back to a bold Navy "B2BEM" wordmark, which
+  the builder handles cleanly but is not the house style.
+- `kduffy_signature.png` — auto-applied to the Author row.
+- `sclaydon_signature.png` — auto-applied to the Reviewer row when S. Claydon is
+  the reviewer.
 
-**The upstream master has not been fixed.** Anyone re-pulling from SharePoint
-will reintroduce them. The three `references/*.md` files are clean.
+A missing signature file degrades to a blank cell and never breaks a build, so a
+document built without them is structurally valid but unsigned.
+
+## Encoding fault — fixed upstream, closed
+
+The master `SKILL.md` previously carried 77 double-encoded UTF-8 sequences (em
+dashes, en dashes, middots and arrows stored as mojibake — UTF-8 bytes decoded as
+cp1252 and re-saved). **This was repaired upstream on 2026-08-05.** The owners
+kept the faulty file beside it as `SKILL.md.BACKUP-2026-08-01-mojibake`
+(28,975 bytes) for reference.
+
+No action remains. A fresh pull from SharePoint is now clean.
+
+## Control change to note (05/08/2026)
+
+The Reviewer row is now **auto-signed** for S. Claydon, at the director's
+instruction. Previously it was deliberately left blank so that a blank Reviewer
+signature was what stopped an unreviewed document reading as executed.
+
+That technical control is gone. The build no longer proves review took place —
+issuing the document is now the act that asserts it. Do not issue a document
+S. Claydon has not actually reviewed. S. Ziegelaar has no signature graphic and
+still signs by hand.
 
 ## Install
 
 **Claude Code** — automatic for anyone working in this repository. No action.
 
 **claude.ai web / desktop / Cowork** — these surfaces read only the cloud skill
-library, so local files never reach them. Package this folder (with the logo
-added) as a `.skill` zip whose entries are `b2bem-documents/...` and upload via
-Settings → Capabilities → Skills, with the intended workspace active.
+library, so local files never reach them. Package this folder (with the three
+PNGs added) as a `.skill` zip whose entries are `b2bem-documents/...` and upload
+via Settings → Capabilities → Skills, with the intended workspace active.
 
 Note the workspace trap recorded in the 2026-07-25 upload pack: the account has
 a personal workspace and a **B2bem Enterprise Specialists (Team)** workspace,

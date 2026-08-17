@@ -9,7 +9,7 @@ description: >
   conventions, brand formatting, ISO 9001 compliance, folder placement, and the
   docx build pattern. Always read this skill before producing any B2BEM document.
 metadata:
-  last_updated: 2026-07-24
+  last_updated: 2026-08-05
   format_unchanged_since: 2026-07-11
   canonical: true
   format_basis: >
@@ -46,7 +46,8 @@ The B2BEM group operates as **two separate legal entities**:
 **Trading name:** B2BEM – Back to Basics
 **Website:** www.b2bem.au
 **Email:** services@b2bem.au
-**Phone:** 0448 883 312
+**Phone:** 0458 992 704
+**Primary contact:** Sarah Ziegelaar
 **Brand statement:** *"Delivering Confidence Through Risk Management, Technology, Quality & Project Support."*
 
 ### Entity Selection — MANDATORY HOLD POINT
@@ -116,8 +117,9 @@ table system.
    Light-grey label cells — replacing the single-tone Navy header.
 5. **Author & Reviewer table** (adds a *Position* column; **Author + Reviewer
    rows only, no Approver**) — replacing "Review & Approval". Author = K. Duffy
-   (Director, Governance & Engagement); Reviewer by document type (S. Claydon —
-   IT/tech/general; S. Ziegelaar — brand/marketing/website).
+   (Director, Compliance & Engagement, signature auto-applied to the Author row); Reviewer by document type (S. Claydon —
+   IT/tech/general; S. Ziegelaar — brand/marketing/website). S. Claydon's signature is
+   auto-applied to the Reviewer row when he is the reviewer.
 6. **Related Documents** is now its own table at the **end** of the document
    (not a row inside Document Control).
 7. **Version History** is 4 columns (Version / Date / Description / Author) — the
@@ -224,7 +226,7 @@ standard — see Section 5A.
 1. Lead spacer (drops content ~⅓ down the page).
 2. **Cover banner** — "B2BEM" wordmark (36pt Navy) · document type/title (24pt) · sub-line `DOC-NO - Type - v1.0` (11pt).
 3. **Document Control** table (2-col label/value).
-4. **Author & Reviewer** table (Role / Name / Position / Signature / Date) — Author and Reviewer rows only, **no Approver**. Author = K. Duffy (Director, Governance & Engagement); Reviewer by document type: S. Claydon (Director, IT & Communications) for IT/tech/general, S. Ziegelaar (Manager, Brand & Advertisement) for brand/marketing/website.
+4. **Author & Reviewer** table (Role / Name / Position / Signature / Date) — Author and Reviewer rows only, **no Approver**. Author = K. Duffy (Director, Compliance & Engagement); Reviewer by document type: S. Claydon (Director, IT & Communications) for IT/tech/general, S. Ziegelaar (Manager, Brand & Advertisement) for brand/marketing/website. **K. Duffy's signature is applied automatically to the Author row** from `assets/kduffy_signature.png` (copy it beside the build script alongside `b2bem_logo.png`), with the Date cell stamped from Issue Date. **S. Claydon's signature is applied automatically to the Reviewer row** from `assets/sclaydon_signature.png` (copy it beside the build script the same way), at the director's instruction (05/08/2026), with its Date cell also stamped from Issue Date. This applies **only when S. Claydon is the reviewer** - S. Ziegelaar has no signature graphic, so a brand/marketing document leaves the Reviewer signature blank for her to sign by hand.
 5. **Version History** table (Version / Date / Description / Author).
 6. Page break.
 7. **CONTENTS** heading (Navy, Gold underline) + real Word field TOC (headings 1–3, hyperlinked).
@@ -389,12 +391,12 @@ the issuing entity's full name and ACN:
 
 **Enterprise Specialists:**
 ```
-UNCONTROLLED DOCUMENT WHEN PRINTED  |  [DOC NUMBER] Rev X.X  |  © B2BEM Enterprise Specialists ACN 698 971 550  |  www.b2bem.au  |  0448 883 312  |  Page X of Y
+UNCONTROLLED DOCUMENT WHEN PRINTED  |  [DOC NUMBER] Rev X.X  |  © B2BEM Enterprise Specialists ACN 698 971 550  |  www.b2bem.au  |  0458 992 704  |  Page X of Y
 ```
 
 **Enterprise Management:**
 ```
-UNCONTROLLED DOCUMENT WHEN PRINTED  |  [DOC NUMBER] Rev X.X  |  © B2BEM Enterprise Management ACN 698 934 477  |  www.b2bem.au  |  0448 883 312  |  Page X of Y
+UNCONTROLLED DOCUMENT WHEN PRINTED  |  [DOC NUMBER] Rev X.X  |  © B2BEM Enterprise Management ACN 698 934 477  |  www.b2bem.au  |  0458 992 704  |  Page X of Y
 ```
 
 Forms/registers add a preparer/approver line above this (see `references/build.md`).

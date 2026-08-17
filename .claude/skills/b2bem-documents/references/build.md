@@ -187,7 +187,7 @@ function makeFooter(docNo){ return new Footer({children:[ new Paragraph({
   alignment:AlignmentType.CENTER, spacing:{before:40},
   border:{top:{style:BorderStyle.SINGLE,size:6,color:NAVY,space:2}},
   children:[
-    new TextRun({text:`UNCONTROLLED DOCUMENT WHEN PRINTED  |  ${docNo} Rev 1.0  |  © ${ENTITY.name} ${ENTITY.acn}  |  www.b2bem.au  |  0448 883 312  |  Page `, font:"Arial",size:14,color:BODY}),
+    new TextRun({text:`UNCONTROLLED DOCUMENT WHEN PRINTED  |  ${docNo} Rev 1.0  |  © ${ENTITY.name} ${ENTITY.acn}  |  www.b2bem.au  |  0458 992 704  |  Page `, font:"Arial",size:14,color:BODY}),
     new TextRun({children:[PageNumber.CURRENT],font:"Arial",size:14,color:BODY}),
     new TextRun({text:" of ",font:"Arial",size:14,color:BODY}),
     new TextRun({children:[PageNumber.TOTAL_PAGES],font:"Arial",size:14,color:BODY}),
@@ -221,20 +221,69 @@ function docControl(rows){
 
 // Author & Reviewer — Role / Name / Position / Signature / Date. Author + Reviewer rows only (NO Approver).
 // Author is fixed; the Reviewer is chosen by the document's domain.
-const AUTHOR = { name:"K. Duffy", position:"Director, Governance & Engagement" };
+const AUTHOR = { name:"K. Duffy", position:"Director, Compliance & Engagement" };
+// `sig` names the signature graphic for a reviewer who has one. S. Ziegelaar has no
+// graphic, so her Reviewer signature cell stays blank for a wet signature.
 const REVIEWERS = {
-  it:    { name:"S. Claydon",   position:"Director, IT & Communications" },   // IT / cyber / data / comms / technology + general default
+  it:    { name:"S. Claydon",   position:"Director, IT & Communications",  sig:"sclaydon_signature.png" },   // IT / cyber / data / comms / technology + general default
   brand: { name:"S. Ziegelaar", position:"Manager, Brand & Advertisement" },  // brand / marketing / advertising / website / social
 };
+
+// Signature graphics - applied AUTOMATICALLY at the director's instruction:
+//   Author row   : K. Duffy   (03/08/2026) - assets/kduffy_signature.png
+//   Reviewer row : S. Claydon (05/08/2026) - assets/sclaydon_signature.png
+// Both ship with this skill in assets/; copy them beside the build script like
+// b2bem_logo.png. A missing file degrades to a blank cell - it never breaks a build.
+//
+// Cells render at a FIXED HEIGHT of 22 with the width derived from the PNG's own IHDR
+// header, so a replacement graphic of any dimensions stays undistorted. (K. Duffy's is
+// natively 470x203, aspect 2.32, which reproduces the original 51x22.)
+//
+// CONTROL CHANGE 05/08/2026 - READ THIS. The Reviewer row was previously never
+// auto-signed, on the stated grounds that a blank Reviewer signature is what stops an
+// unreviewed document reading as executed. That control was lifted at the director's
+// instruction. The build therefore no longer provides any technical guarantee that a
+// signed Reviewer row was genuinely reviewed - issuing the document is now the act that
+// asserts review, so do not issue a document S. Claydon has not actually reviewed.
+// S. Ziegelaar has no graphic and still signs by hand.
+function loadSig(file){
+  if (!fs.existsSync(file)) return null;
+  const data = fs.readFileSync(file);
+  // PNG IHDR: 8-byte signature + 4 length + 4 "IHDR", then width/height as big-endian uint32.
+  const w = data.readUInt32BE(16), h = data.readUInt32BE(20);
+  return { data, width: Math.max(1, Math.round(22 * (w / h))), height: 22 };
+}
+const SIGS = {
+  "K. Duffy":   loadSig("kduffy_signature.png"),
+  "S. Claydon": loadSig("sclaydon_signature.png"),
+};
+// signatureCell(width, name) - name must match a SIGS key; anything else renders blank.
+function signatureCell(w, name){
+  const s = SIGS[name];
+  if (!s) return valCell("",w);
+  return cell(new Paragraph({children:[ new ImageRun({ type:"png", data:s.data,
+    transformation:{width:s.width,height:s.height},
+    altText:{title:`${name} signature`, description:`Signature of ${name}`,
+             name:`${name.replace(/[^A-Za-z]/g,"")}Signature`} }) ]}), w);
+}
+
 const FIFTH = Math.floor(CONTENT_W/5), AR_W=[FIFTH,FIFTH,FIFTH,FIFTH,CONTENT_W-FIFTH*4];
-function authorReviewer(reviewer){   // reviewer = REVIEWERS.it (default) or REVIEWERS.brand
+// authorReviewer(reviewer, issueDate) - issueDate stamps the Date cell of every row that
+// carries an auto-applied signature, so no signature appears undated. buildDoc pulls it
+// from the control table's "Issue Date" row; cfg.signDate overrides. Omit and the Date
+// cells stay blank.
+function authorReviewer(reviewer, issueDate){   // reviewer = REVIEWERS.it (default) or REVIEWERS.brand
   const rev = reviewer || REVIEWERS.it;
-  const ar=(r,n,p)=> new TableRow({children:[ valCell(r,AR_W[0]), valCell(n,AR_W[1]), valCell(p,AR_W[2]), valCell("",AR_W[3]), valCell("",AR_W[4]) ]});
+  const ar=(r,n,p,sigName,date)=> new TableRow({children:[ valCell(r,AR_W[0]), valCell(n,AR_W[1]),
+    valCell(p,AR_W[2]), signatureCell(AR_W[3],sigName), valCell(date||"",AR_W[4]) ]});
+  // A reviewer with no signature graphic (S. Ziegelaar) gets a blank signature AND a blank
+  // date - an undated blank is what a row awaiting a wet signature should look like.
+  const revSigned = rev.sig && SIGS[rev.name];
   return new Table({ width:{size:CONTENT_W,type:WidthType.DXA}, columnWidths:AR_W, borders:tableBorders, rows:[
     new TableRow({children:[titleCell("Author & Reviewer",5)]}),
     new TableRow({children:[colHdr("Role",AR_W[0]),colHdr("Name",AR_W[1]),colHdr("Position",AR_W[2]),colHdr("Signature",AR_W[3]),colHdr("Date",AR_W[4])]}),
-    ar("Author",AUTHOR.name,AUTHOR.position),
-    ar("Reviewer",rev.name,rev.position),
+    ar("Author",AUTHOR.name,AUTHOR.position,AUTHOR.name,issueDate),
+    ar("Reviewer",rev.name,rev.position, revSigned?rev.name:null, revSigned?issueDate:""),
   ]});
 }
 
@@ -279,7 +328,8 @@ function buildDoc(cfg){
     leadSpacer,
     makeBanner(cfg.bannerType, `${cfg.docNo} - ${cfg.bannerType} - v1.0`),
     spacer(240), docControl(cfg.control),
-    spacer(120), authorReviewer(cfg.reviewer),   // pass REVIEWERS.brand for brand/marketing docs; omit for IT/general
+    spacer(120), authorReviewer(cfg.reviewer, signDate),   // pass REVIEWERS.brand for brand/marketing docs; omit for IT/general
+    // signDate comes from the control table Issue Date row (or cfg.signDate)
     spacer(120), versionHistory(),
     new Paragraph({children:[new PageBreak()]}),
     new Paragraph({ spacing:{after:120}, border:{bottom:{style:BorderStyle.SINGLE,size:8,color:GOLD,space:4}},
@@ -544,14 +594,14 @@ rows.forEach((r,i)=> trs.push(new TableRow({
 | Title rows | Full-width via `columnSpan` on the SAME grid — never a separate one-cell table |
 | Related Documents | Its own table at the END of the document — not a Document Control row |
 | Version History | 4 columns (Version/Date/Description/Author) — no "Approved" column |
-| Author & Reviewer | Role/Name/Position/Signature/Date; **Author + Reviewer only, no Approver**. Author = K. Duffy (Director, Governance & Engagement); Reviewer by domain — `REVIEWERS.it` S. Claydon (IT/tech/general) or `REVIEWERS.brand` S. Ziegelaar (brand/marketing/website) |
+| Author & Reviewer | Role/Name/Position/Signature/Date; **Author + Reviewer only, no Approver**. Author = K. Duffy (Director, Compliance & Engagement), **signature auto-applied to the Author row from `assets/kduffy_signature.png` - copy it beside the build script**; Reviewer by domain — `REVIEWERS.it` S. Claydon (IT/tech/general), **auto-signed from `assets/sclaydon_signature.png`**, or `REVIEWERS.brand` S. Ziegelaar (brand/marketing/website), **signature and date left blank for a wet signature** |
 | ISO row | NO "ISO Reference" row (ISO 9001 control obligation still applies) |
 | No DRAFT | Issue clean — no DRAFT in header/Version; the optional `Status` row is removed on issue |
 | No Change Log | Version History row is the only in-document audit trace |
 | H1 spacing | No empty paragraph before `h1(...)` — the Heading 1 style's `spacing.before` handles it |
 | Line spacing | Body uses `line:276, lineRule:"auto"` (1.15) |
 | Header | Light borderless 3-cell: doc-no (1700) · title (5738) · logo (2200). Logo `b2bem_logo.png` at 140×47 (source "Website_topper Logo.png"); "B2BEM" wordmark fallback if absent; empty `Paragraph` before the table; `header:113` |
-| Footer | Entity name + ACN + www.b2bem.au + 0448 883 312 + Page X of Y; `footer:454` |
+| Footer | Entity name + ACN + www.b2bem.au + 0458 992 704 + Page X of Y; `footer:454` |
 | Widths | `WidthType.DXA` only; `columnWidths` sum to table width AND set on each cell; `ShadingType.CLEAR` |
 | Bullets | `LevelFormat.BULLET`; use `bulb(lead,rest)` for bold lead-in bullets |
 | Forms | Use `buildFormDoc` — compact banner, `formH`, `detailTable`/`gridTable`, preparer/approver footer line |
@@ -579,8 +629,9 @@ _build\marine\b2bem_itr_builder.js    - Inspection Test Records (buildITR)      
 Then write one `build_<job>.js` per job beside them, requiring the engine.
 
 **Notes:**
-- `b2bem_docx_builder.js` also exists in five phase subfolders (`marine`, `mecciv`,
-  `piping`, `fsbh`, `comproc`). All six are byte-identical - any is safe.
+- `b2bem_docx_builder.js` also exists in **seven** phase subfolders (`marine`, `mecciv`,
+  `piping`, `fsbh`, `comproc`, `audit202608`, `iso9001`). All eight are byte-identical -
+  any is safe. **If you change the canonical copy, sync all seven or they drift.**
 - `b2bem_itr_builder.js` has **no** canonical root copy and its four copies differ.
   Use the **`marine`** one; it is the functional superset. See SKILL.md §12.
 - There is no `b2bem_form_builder.js` and no `b2bem_build_reference_hazard.js` -
